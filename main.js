@@ -40,6 +40,15 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden && game.state === STATE.PLAYING) game.state = STATE.PAUSED;
 });
 
+// Hi-DPI-Schärfe: Backing-Store auf devicePixelRatio hochziehen, in 800x600-Koords zeichnen.
+function setupHiDPI() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = CONFIG.canvas.w * dpr;
+  canvas.height = CONFIG.canvas.h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // draw() nutzt nur save/translate → DPR-Basis bleibt
+}
+setupHiDPI();
+
 let last = performance.now();
 function frame(now) {
   let dt = (now - last) / 1000;
