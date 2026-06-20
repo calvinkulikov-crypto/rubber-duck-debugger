@@ -190,3 +190,42 @@ export class Boss {
     ctx.restore();
   }
 }
+
+export class Particle {
+  constructor(x, y, color) {
+    // echter Radial-Burst (Browser-only, nie unit-getestet → Math.random ok)
+    const a = Math.random() * Math.PI * 2;
+    const sp = 60 + Math.random() * 180;
+    this.x = x; this.y = y;
+    this.vx = Math.cos(a) * sp;
+    this.vy = Math.sin(a) * sp - 40;          // leichter Aufwärts-Bias
+    this.life = 0.4 + Math.random() * 0.35;
+    this.max = this.life; this.color = color; this.dead = false;
+  }
+  update(dt) {
+    this.x += this.vx * dt; this.y += this.vy * dt; this.vy += 380 * dt;   // Gravitation
+    this.life -= dt; if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = Math.max(0, this.life / this.max);
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x - 2, this.y - 2, 4, 4);
+    ctx.globalAlpha = 1;
+  }
+}
+
+export class FloatingText {
+  constructor(x, y, text, color) {
+    this.x = x; this.y = y; this.text = text; this.color = color;
+    this.life = 0.9; this.max = 0.9; this.dead = false;
+  }
+  update(dt) { this.y -= 36 * dt; this.life -= dt; if (this.life <= 0) this.dead = true; }
+  draw(ctx) {
+    ctx.globalAlpha = Math.max(0, this.life / this.max);
+    ctx.fillStyle = this.color;
+    ctx.font = "bold 16px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.globalAlpha = 1;
+  }
+}

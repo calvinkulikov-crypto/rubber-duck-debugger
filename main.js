@@ -1,9 +1,16 @@
 import { CONFIG } from "./config.js";
 import { Game, STATE } from "./game.js";
+import { Sound } from "./audio.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const game = new Game();
+const sound = new Sound();
+const game = new Game(sound);
+
+// AudioContext erst bei erster Nutzer-Geste erzeugen/aufwecken (Browser-Autoplay-Policy)
+function unlockAudio() { sound.init(); sound.resume(); }
+window.addEventListener("mousedown", unlockAudio, { once: true });
+window.addEventListener("keydown", unlockAudio, { once: true });
 
 // CSS-Pixel → interne Canvas-Koordinaten (Canvas wird per CSS skaliert)
 function toCanvasX(clientX) {

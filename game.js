@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { Duck, Beam, Bug, Boss } from "./entities.js";
+import { Duck, Beam, Bug, Boss, Particle, FloatingText } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
@@ -87,7 +87,13 @@ export class Game {
     this.combo += 1;
     this.comboTimer = CONFIG.combo.timeout;
     this.score += scoreForKill(bug.points, this.multiplier());
-    // Partikel/FloatingText/Sound in Task 9
+    const burst = bug.isBoss ? 28 : 10;
+    for (let i = 0; i < burst; i++) this.particles.push(new Particle(bug.x, bug.y, bug.color));
+    this.texts.push(new FloatingText(bug.x, bug.y, bug.label, "#c9d1d9"));
+    const mult = this.multiplier();
+    if (mult > 1) this.texts.push(new FloatingText(bug.x, bug.y - 18, `×${mult}`, "#7ee787"));
+    if (bug.isBoss) this.shake = Math.max(this.shake, 0.3);
+    this.sound?.[bug.isBoss ? "bossHit" : "pop"]();
   }
 
   onEscape(bug) {
@@ -141,6 +147,8 @@ export class Game {
           beam.dead = true;
           bug.hit(1);
           if (bug.dead) this.onKill(bug);
+          else if (bug.isBoss) this.sound?.bossHit();
+          else if (bug.type === "tank") this.sound?.tankHit();
           break;
         }
       }
@@ -158,6 +166,13 @@ export class Game {
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) this.combo = 0;
     }
+
+    // Juice: Partikel/Texte tickern, Screen-Shake abklingen
+    for (const p of this.particles) p.update(dt);
+    for (const t of this.texts) t.update(dt);
+    this.particles = this.particles.filter((p) => !p.dead);
+    this.texts = this.texts.filter((t) => !t.dead);
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);
 
     // Welle vorbei? → nächste
     if (this.banner <= 0 && this.toSpawn === 0 && this.bugs.length === 0 && !this.bossPending) {
@@ -184,7 +199,12 @@ export class Game {
 
   draw(ctx) {
     ctx.fillStyle = "#0d1117";
-    ctx.fillRect(0, 0, this.W, this.H);
+    ctx.fillRect(0, 0, this.W, this.H);    // BG vor Shake → keine Rand-Lücken beim Jitter
+    ctx.save();
+    if (this.shake > 0) {
+      const s = this.shake * 14;
+      ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);  // echter Frame-Jitter
+    }
     ctx.textAlign = "center";
     ctx.fillStyle = "#c9d1d9";
     if (this.state === STATE.TITLE) {
@@ -209,6 +229,8 @@ export class Game {
       for (const bug of this.bugs) bug.draw(ctx, this.time);
       for (const b of this.beams) b.draw(ctx);
       this.duck.draw(ctx);
+      for (const p of this.particles) p.draw(ctx);
+      for (const t of this.texts) t.draw(ctx);
       this.drawHud(ctx);
       if (this.banner > 0) {
         ctx.fillStyle = "#c9d1d9";
@@ -217,5 +239,6 @@ export class Game {
         ctx.fillText(`Welle ${this.wave}`, this.W / 2, this.H / 2);
       }
     }
+    ctx.restore();
   }
 }
