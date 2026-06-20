@@ -37,6 +37,12 @@ export class Game {
     this.banner = 0;           // > 0 = Wellen-Banner sichtbar, kein Spawn
     this.speedMult = 1;
     this.bossPending = false;
+    this.codeLines = [
+      "function fixBug(duck) {", "  while (bugs.length) {", "    duck.explain(bug);",
+      "    if (bug.solved) ship();", "  }", "  return clean;", "}",
+      "const debugDuck = new Duck();", "debugDuck.quack();", "// TODO: more tests",
+    ];
+    this.corrupted = [];     // Indizes korrumpierter Zeilen
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -101,7 +107,11 @@ export class Game {
     this.combo = 0;
     this.shake = 0.4;
     this.sound?.damage();
-    // Code-Zeilen-Korruption (visuell) in Task 10
+    // eine Code-Zeile korrumpieren (visuell), keine Dubletten
+    for (let k = 0; k < this.codeLines.length; k++) {
+      const idx = (this.corrupted.length * 3 + 2 + k) % this.codeLines.length;
+      if (!this.corrupted.includes(idx)) { this.corrupted.push(idx); break; }
+    }
     if (this.lives <= 0) this.gameOver();
   }
 
@@ -180,6 +190,35 @@ export class Game {
     }
   }
 
+  drawBackground(ctx) {
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, this.W, this.H);
+    // Gutter
+    ctx.fillStyle = "#161b22";
+    ctx.fillRect(0, 0, 44, this.H);
+    ctx.textAlign = "left";
+    ctx.font = "15px ui-monospace, monospace";
+    for (let i = 0; i < this.codeLines.length; i++) {
+      const y = 80 + i * 30;
+      ctx.fillStyle = "#6e7681";
+      ctx.fillText(String(i + 1).padStart(2, " "), 12, y);
+      const isBad = this.corrupted.includes(i);
+      ctx.fillStyle = isBad ? "#f85149" : "#3b4048";          // korrumpiert = rot
+      let line = this.codeLines[i];
+      if (isBad) line = line.replace(/[a-z]/gi, (c) => (((i + y) % 3) ? c : "▓"));  // glitch
+      ctx.fillText(line, 56, y);
+    }
+    // Editor-Boden-Linie
+    ctx.strokeStyle = "#30363d"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, CONFIG.floorY); ctx.lineTo(this.W, CONFIG.floorY); ctx.stroke();
+    // Blinkender Cursor am Ende der letzten Zeile
+    if ((Math.floor(this.time * 2) % 2) === 0) {
+      ctx.fillStyle = "#7ee787";
+      const lastW = ctx.measureText(this.codeLines[this.codeLines.length - 1]).width;
+      ctx.fillRect(56 + lastW + 2, 80 + (this.codeLines.length - 1) * 30 - 12, 8, 16);
+    }
+  }
+
   drawHud(ctx) {
     ctx.fillStyle = "#c9d1d9";
     ctx.font = "16px ui-monospace, monospace";
@@ -226,6 +265,7 @@ export class Game {
       ctx.fillText("Pause", this.W / 2, this.H / 2);
     } else {
       // PLAYING
+      this.drawBackground(ctx);
       for (const bug of this.bugs) bug.draw(ctx, this.time);
       for (const b of this.beams) b.draw(ctx);
       this.duck.draw(ctx);
