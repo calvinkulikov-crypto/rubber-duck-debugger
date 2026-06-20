@@ -14,7 +14,7 @@ export class Game {
     this.sound = sound;
     this.state = STATE.TITLE;
     this.input = { mouseX: this.W / 2, firing: false, left: false, right: false };
-    this.best = 0;            // wird in Task 11 aus localStorage geladen
+    this.best = this.loadBest();
     this.reset();
   }
 
@@ -117,9 +117,13 @@ export class Game {
 
   gameOver() {
     this.state = STATE.GAMEOVER;
-    if (this.score > this.best) this.best = this.score;   // localStorage in Task 11
+    if (this.score > this.best) this.best = this.score;
+    this.saveBest();
     this.sound?.gameOver();
   }
+
+  loadBest() { try { return parseInt(localStorage.getItem("rdd_best") || "0", 10) || 0; } catch { return 0; } }
+  saveBest() { try { localStorage.setItem("rdd_best", String(this.best)); } catch { /* privater modus: nur in-memory */ } }
 
   update(dt) {
     if (this.state !== STATE.PLAYING) return;
@@ -236,6 +240,58 @@ export class Game {
     }
   }
 
+  drawPlayfield(ctx) {
+    this.drawBackground(ctx);
+    for (const bug of this.bugs) bug.draw(ctx, this.time);
+    for (const b of this.beams) b.draw(ctx);
+    this.duck.draw(ctx);
+    for (const p of this.particles) p.draw(ctx);
+    for (const t of this.texts) t.draw(ctx);
+    this.drawHud(ctx);
+    if (this.banner > 0) {
+      ctx.fillStyle = "#c9d1d9";
+      ctx.font = "32px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`Welle ${this.wave}`, this.W / 2, this.H / 2);
+    }
+  }
+
+  drawTitle(ctx) {
+    this.drawBackground(ctx);
+    ctx.fillStyle = "rgba(13,17,23,0.78)"; ctx.fillRect(0, 0, this.W, this.H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffd23f"; ctx.font = "44px ui-monospace, monospace";
+    ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 190);
+    ctx.fillStyle = "#c9d1d9"; ctx.font = "18px ui-monospace, monospace";
+    ctx.fillText("Erklär dem Entchen deinen Bug.", this.W / 2, 230);
+    ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
+    ctx.fillText("Maus / Pfeile = bewegen   •   Klick / Leertaste = Erklär-Strahl", this.W / 2, 300);
+    ctx.fillText("Schieß Bugs ab, bevor sie deinen Code korrumpieren.", this.W / 2, 326);
+    ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
+    ctx.fillText("Klick zum Start", this.W / 2, 400);
+    ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
+    ctx.fillText(`Best: ${this.best}`, this.W / 2, 440);
+    // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
+    if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+      ctx.fillStyle = "#e5c07b"; ctx.font = "14px ui-monospace, monospace";
+      ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 470);
+    }
+  }
+
+  drawGameOver(ctx) {
+    this.drawBackground(ctx);
+    ctx.fillStyle = "rgba(13,17,23,0.82)"; ctx.fillRect(0, 0, this.W, this.H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#f85149"; ctx.font = "46px ui-monospace, monospace";
+    ctx.fillText("BUILD BROKEN", this.W / 2, 230);
+    ctx.fillStyle = "#c9d1d9"; ctx.font = "22px ui-monospace, monospace";
+    ctx.fillText(`Score: ${this.score}`, this.W / 2, 290);
+    ctx.fillText(`Best: ${this.best}`, this.W / 2, 322);
+    ctx.fillText(`Welle: ${this.wave}`, this.W / 2, 354);
+    ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
+    ctx.fillText("R / Klick = neu starten", this.W / 2, 420);
+  }
+
   draw(ctx) {
     ctx.fillStyle = "#0d1117";
     ctx.fillRect(0, 0, this.W, this.H);    // BG vor Shake → keine Rand-Lücken beim Jitter
@@ -244,40 +300,20 @@ export class Game {
       const s = this.shake * 14;
       ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);  // echter Frame-Jitter
     }
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#c9d1d9";
-    if (this.state === STATE.TITLE) {
-      ctx.font = "40px ui-monospace, monospace";
-      ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 220);
-      ctx.font = "18px ui-monospace, monospace";
-      ctx.fillText("Klick zum Start", this.W / 2, 320);
-    } else if (this.state === STATE.GAMEOVER) {
-      ctx.font = "40px ui-monospace, monospace";
-      ctx.fillStyle = "#f85149";
-      ctx.fillText("BUILD BROKEN", this.W / 2, 230);
-      ctx.fillStyle = "#c9d1d9";
-      ctx.font = "20px ui-monospace, monospace";
-      ctx.fillText(`Score: ${this.score}`, this.W / 2, 290);
-      ctx.fillText(`Best: ${this.best}`, this.W / 2, 322);
-      ctx.fillText("R / Klick = neu", this.W / 2, 380);
+    if (this.state === STATE.PLAYING) {
+      this.drawPlayfield(ctx);
     } else if (this.state === STATE.PAUSED) {
-      ctx.font = "32px ui-monospace, monospace";
-      ctx.fillText("Pause", this.W / 2, this.H / 2);
+      this.drawPlayfield(ctx);                 // eingefrorener Frame
+      ctx.fillStyle = "rgba(13,17,23,0.6)"; ctx.fillRect(0, 0, this.W, this.H);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#c9d1d9"; ctx.font = "34px ui-monospace, monospace";
+      ctx.fillText("⏸ Pause", this.W / 2, this.H / 2 - 8);
+      ctx.fillStyle = "#8b949e"; ctx.font = "16px ui-monospace, monospace";
+      ctx.fillText("P / Esc = weiter", this.W / 2, this.H / 2 + 24);
+    } else if (this.state === STATE.TITLE) {
+      this.drawTitle(ctx);
     } else {
-      // PLAYING
-      this.drawBackground(ctx);
-      for (const bug of this.bugs) bug.draw(ctx, this.time);
-      for (const b of this.beams) b.draw(ctx);
-      this.duck.draw(ctx);
-      for (const p of this.particles) p.draw(ctx);
-      for (const t of this.texts) t.draw(ctx);
-      this.drawHud(ctx);
-      if (this.banner > 0) {
-        ctx.fillStyle = "#c9d1d9";
-        ctx.font = "32px ui-monospace, monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(`Welle ${this.wave}`, this.W / 2, this.H / 2);
-      }
+      this.drawGameOver(ctx);
     }
     ctx.restore();
   }
