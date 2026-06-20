@@ -141,3 +141,52 @@ export class Bug {
     ctx.restore();
   }
 }
+
+export class Boss {
+  constructor() {
+    const b = CONFIG.boss;
+    this.x = CONFIG.canvas.w / 2;
+    this.y = -b.r;
+    this.r = b.r;
+    this.vy = b.vy;
+    this.hp = b.hp;
+    this.maxHp = b.hp;
+    this.points = b.points;
+    this.color = b.color;
+    this.label = b.label;
+    this.flash = 0;
+    this.dead = false;
+    this.escaped = false;
+    this.isBoss = true;
+  }
+  update(dt, time) {
+    this.y += this.vy * dt;
+    this.x += Math.sin(time * 1.6) * 40 * dt;
+    if (this.flash > 0) this.flash = Math.max(0, this.flash - dt);
+  }
+  hit(dmg = 1) {
+    this.hp -= dmg;
+    this.flash = 0.1;
+    // Heisenbug: teleportiert seine x-Position bei jedem Treffer
+    const margin = this.r + 20;
+    this.x = margin + (Math.abs(this.hp * 137 + Math.floor(this.y) * 7) % (CONFIG.canvas.w - 2 * margin));
+    if (this.hp <= 0) this.dead = true;
+  }
+  draw(ctx, time) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.fillStyle = this.flash > 0 ? "#ffffff" : this.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, this.r, this.r * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0d1117";
+    ctx.beginPath(); ctx.arc(-this.r * 0.32, -this.r * 0.18, this.r * 0.13, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.r * 0.32, -this.r * 0.18, this.r * 0.13, 0, Math.PI * 2); ctx.fill();
+    // HP-Bar
+    ctx.fillStyle = "#30363d"; ctx.fillRect(-this.r, -this.r - 14, this.r * 2, 6);
+    ctx.fillStyle = "#56b6c2"; ctx.fillRect(-this.r, -this.r - 14, this.r * 2 * (this.hp / this.maxHp), 6);
+    ctx.fillStyle = "#8b949e"; ctx.font = "12px ui-monospace, monospace"; ctx.textAlign = "center";
+    ctx.fillText(this.label, 0, -this.r - 20);
+    ctx.restore();
+  }
+}

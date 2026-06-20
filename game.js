@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { Duck, Beam, Bug } from "./entities.js";
+import { Duck, Beam, Bug, Boss } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
@@ -58,8 +58,9 @@ export class Game {
     this.banner = CONFIG.waves.bannerTime;
     if (this.wave > 1) this.sound?.waveClear();
     if (isBossWave(this.wave, CONFIG.waves.bossEvery)) {
-      this.bossPending = true;     // Boss-Spawn folgt in Task 8
-      this.toSpawn = 0;
+      this.bugs.push(new Boss());  // Boss zählt als normaler bugs-Eintrag (gleiche Felder)
+      this.toSpawn = 3;            // wenige Begleit-Bugs
+      this.bossPending = false;
     } else {
       this.toSpawn = waveBudget(this.wave, CONFIG.waves.baseBudget, CONFIG.waves.perWave);
       this.bossPending = false;
