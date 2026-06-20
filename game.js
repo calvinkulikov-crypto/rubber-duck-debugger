@@ -1,4 +1,5 @@
 import { CONFIG } from "./config.js";
+import { Duck } from "./entities.js";
 
 export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
 
@@ -23,6 +24,7 @@ export class Game {
     this.particles = [];
     this.texts = [];
     this.shake = 0;
+    this.duck = new Duck();
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -40,7 +42,7 @@ export class Game {
 
   update(dt) {
     if (this.state !== STATE.PLAYING) return;
-    // Systeme kommen in Tasks 4-8 hierher.
+    this.duck.update(dt, this.input);
   }
 
   draw(ctx) {
@@ -62,8 +64,8 @@ export class Game {
       ctx.font = "32px ui-monospace, monospace";
       ctx.fillText("Pause", this.W / 2, this.H / 2);
     } else {
-      ctx.font = "16px ui-monospace, monospace";
-      ctx.fillText("PLAYING — Systeme folgen", this.W / 2, this.H / 2);
+      // PLAYING
+      this.duck.draw(ctx);
     }
   }
 }
