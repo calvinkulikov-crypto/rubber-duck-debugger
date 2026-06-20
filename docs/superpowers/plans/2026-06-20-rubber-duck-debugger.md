@@ -40,6 +40,15 @@ Alle Dateinamen lowercase, alle Imports relativ (`./`). Template-`game.js` (Plat
 - Create: `style.css` (ersetzt Template-Inhalt), `main.js`, `config.js`, `package.json`
 - Note: Template-`game.js` wird in Task 3 vollständig als `Game` neu geschrieben; `index.html` lädt es ab jetzt nicht mehr direkt.
 
+- [ ] **Step 0: `.gitignore` ergänzen** (Premortem-Mitigation)
+
+An die bestehende Template-`.gitignore` anhängen, damit Deploy-Metadaten/Müll nicht ins public Repo wandern:
+```
+node_modules/
+.vercel
+.DS_Store
+```
+
 - [ ] **Step 1: `package.json` anlegen**
 
 ```json
@@ -831,6 +840,11 @@ git commit -m "feat: kollision, score/combo/multiplier, leben, game over"
 git push origin main
 ```
 
+> **Premortem-Mitigation — Minimum Shippable + früher Deploy:** Nach Task 7 ist das Spiel
+> vollständig spielbar (Loop + Score + Leben + GameOver). **Jetzt einmal probeweise auf Vercel
+> deployen** (Task-13-Prozedur), um die Deploy-Pipeline früh zu de-risken — danach normal
+> weiterbauen. Ab hier ist jederzeit eine gültige Abgabe möglich.
+
 ---
 
 ## Task 8: Heisenbug-Boss
@@ -1035,7 +1049,7 @@ draw(ctx) {
   ctx.save();
   if (this.shake > 0) {
     const s = this.shake * 14;
-    ctx.translate((((this.time * 911) % 2) - 1) * s, (((this.time * 733) % 2) - 1) * s);
+    ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);  // echter Frame-Jitter
   }
   // ... bestehendes Zeichnen je State ...
   // im PLAYING nach Entities: for (const p of this.particles) p.draw(ctx); for (const t of this.texts) t.draw(ctx);
@@ -1189,15 +1203,26 @@ ctx.fillText("R / Klick = neu starten", this.W / 2, 420);
 ```
 Pause-Overlay: über den (eingefrorenen) PLAYING-Frame ein halbtransparentes Rechteck + "⏸ Pause — P/Esc weiter". Dafür im PAUSED-Zweig zuerst denselben PLAYING-Render (Background+Entities+HUD) zeichnen, dann Overlay drauf.
 
-- [ ] **Step 4: Verifizieren**
+- [ ] **Step 4: Touch-Hinweis (Premortem-Mitigation: mobil unspielbar)**
+
+Im TITLE-Screen einen Hinweis einblenden, wenn kein Maus-Pointer da ist (Handy/Tablet), damit ein Judge am Handy nicht vor einem toten Spiel sitzt:
+```js
+// im TITLE-Zweig, am Ende:
+if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+  ctx.fillStyle = "#e5c07b"; ctx.font = "14px ui-monospace, monospace";
+  ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 470);
+}
+```
+
+- [ ] **Step 5: Verifizieren**
 
 Browser: Title mit Anleitung + Best. Spielen, Highscore schlagen, neu laden → Best bleibt (localStorage). Privater Modus → kein Crash. Pause-Overlay sauber über dem Spielstand. Keine Fehler.
 
-- [ ] **Step 5: Commit + Push**
+- [ ] **Step 6: Commit + Push**
 
 ```bash
 git add -A
-git commit -m "feat: screens-politur (title/pause/gameover) + localStorage best-score"
+git commit -m "feat: screens-politur (title/pause/gameover) + localStorage best-score + touch-hinweis"
 git push origin main
 ```
 
