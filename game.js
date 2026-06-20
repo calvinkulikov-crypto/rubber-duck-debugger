@@ -1,11 +1,69 @@
-// 🏆 Building Challenge - Hier startet dein Minigame.
-// Das hier ist nur ein leeres Gerüst. Bau los!
+import { CONFIG } from "./config.js";
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
 
-// Beispiel: einen Text in die Mitte zeichnen. Lösch das und leg los.
-ctx.fillStyle = "#f5f5f5";
-ctx.font = "20px system-ui, sans-serif";
-ctx.textAlign = "center";
-ctx.fillText("Dein Spiel beginnt hier", canvas.width / 2, canvas.height / 2);
+export class Game {
+  constructor(sound = null) {
+    this.W = CONFIG.canvas.w;
+    this.H = CONFIG.canvas.h;
+    this.sound = sound;
+    this.state = STATE.TITLE;
+    this.input = { mouseX: this.W / 2, firing: false, left: false, right: false };
+    this.best = 0;            // wird in Task 11 aus localStorage geladen
+    this.reset();
+  }
+
+  reset() {
+    this.score = 0;
+    this.wave = 0;            // Spawner startet Welle 1 in Task 6
+    this.lives = CONFIG.lives;
+    this.combo = 0;
+    this.bugs = [];
+    this.beams = [];
+    this.particles = [];
+    this.texts = [];
+    this.shake = 0;
+  }
+
+  start() { this.reset(); this.state = STATE.PLAYING; }
+
+  togglePause() {
+    if (this.state === STATE.PLAYING) this.state = STATE.PAUSED;
+    else if (this.state === STATE.PAUSED) this.state = STATE.PLAYING;
+  }
+
+  // Klick/Taste-"bestätigen" je nach State
+  confirm() {
+    if (this.state === STATE.TITLE) this.start();
+    else if (this.state === STATE.GAMEOVER) this.start();
+  }
+
+  update(dt) {
+    if (this.state !== STATE.PLAYING) return;
+    // Systeme kommen in Tasks 4-8 hierher.
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, this.W, this.H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#c9d1d9";
+    if (this.state === STATE.TITLE) {
+      ctx.font = "40px ui-monospace, monospace";
+      ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 220);
+      ctx.font = "18px ui-monospace, monospace";
+      ctx.fillText("Klick zum Start", this.W / 2, 320);
+    } else if (this.state === STATE.GAMEOVER) {
+      ctx.font = "40px ui-monospace, monospace";
+      ctx.fillText("BUILD BROKEN", this.W / 2, 240);
+      ctx.font = "18px ui-monospace, monospace";
+      ctx.fillText("R / Klick = neu", this.W / 2, 320);
+    } else if (this.state === STATE.PAUSED) {
+      ctx.font = "32px ui-monospace, monospace";
+      ctx.fillText("Pause", this.W / 2, this.H / 2);
+    } else {
+      ctx.font = "16px ui-monospace, monospace";
+      ctx.fillText("PLAYING — Systeme folgen", this.W / 2, this.H / 2);
+    }
+  }
+}
