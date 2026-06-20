@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { Duck } from "./entities.js";
+import { Duck, Beam } from "./entities.js";
 
 export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
 
@@ -25,6 +25,7 @@ export class Game {
     this.texts = [];
     this.shake = 0;
     this.duck = new Duck();
+    this.fireCd = 0;
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -43,6 +44,18 @@ export class Game {
   update(dt) {
     if (this.state !== STATE.PLAYING) return;
     this.duck.update(dt, this.input);
+
+    // Feuern (Autofire bei gehaltenem Button/Space, per Cooldown gedrosselt)
+    this.fireCd -= dt;
+    if (this.input.firing && this.fireCd <= 0) {
+      const m = this.duck.muzzle();
+      this.beams.push(new Beam(m.x, m.y));
+      this.duck.triggerRecoil();
+      this.fireCd = CONFIG.beam.cooldown;
+      this.sound?.fire();
+    }
+    for (const b of this.beams) b.update(dt);
+    this.beams = this.beams.filter((b) => !b.dead);
   }
 
   draw(ctx) {
@@ -65,6 +78,7 @@ export class Game {
       ctx.fillText("Pause", this.W / 2, this.H / 2);
     } else {
       // PLAYING
+      for (const b of this.beams) b.draw(ctx);
       this.duck.draw(ctx);
     }
   }

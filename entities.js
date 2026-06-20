@@ -57,3 +57,30 @@ export class Duck {
     ctx.restore();
   }
 }
+
+export class Beam {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.len = CONFIG.beam.len;
+    this.width = CONFIG.beam.width;
+    this.dead = false;
+  }
+  update(dt) {
+    this.y -= CONFIG.beam.speed * dt;
+    if (this.y + this.len < 0) this.dead = true;   // oben raus = Miss
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.strokeStyle = "#7ee787";
+    ctx.lineWidth = this.width;
+    ctx.lineCap = "round";
+    ctx.shadowColor = "#7ee787";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(this.x, this.y - this.len);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
