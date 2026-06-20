@@ -1,6 +1,9 @@
 import { CONFIG } from "./config.js";
 import { Duck, Beam, Bug } from "./entities.js";
-import { waveBudget, waveSpeedMultiplier, isBossWave } from "./mechanics.js";
+import {
+  waveBudget, waveSpeedMultiplier, isBossWave,
+  bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
+} from "./mechanics.js";
 
 export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
 
@@ -20,6 +23,7 @@ export class Game {
     this.wave = 0;
     this.lives = CONFIG.lives;
     this.combo = 0;
+    this.comboTimer = 0;
     this.bugs = [];
     this.beams = [];
     this.particles = [];
@@ -76,6 +80,30 @@ export class Game {
     this.bugs.push(new Bug(key, x, this.speedMult, this.time));
   }
 
+  multiplier() { return comboMultiplier(this.combo, CONFIG.combo.perTier, CONFIG.combo.multCap); }
+
+  onKill(bug) {
+    this.combo += 1;
+    this.comboTimer = CONFIG.combo.timeout;
+    this.score += scoreForKill(bug.points, this.multiplier());
+    // Partikel/FloatingText/Sound in Task 9
+  }
+
+  onEscape(bug) {
+    this.lives -= 1;
+    this.combo = 0;
+    this.shake = 0.4;
+    this.sound?.damage();
+    // Code-Zeilen-Korruption (visuell) in Task 10
+    if (this.lives <= 0) this.gameOver();
+  }
+
+  gameOver() {
+    this.state = STATE.GAMEOVER;
+    if (this.score > this.best) this.best = this.score;   // localStorage in Task 11
+    this.sound?.gameOver();
+  }
+
   update(dt) {
     if (this.state !== STATE.PLAYING) return;
     this.time += dt;
@@ -100,13 +128,56 @@ export class Game {
       this.sound?.fire();
     }
     for (const b of this.beams) b.update(dt);
-    this.beams = this.beams.filter((b) => !b.dead);
 
     for (const bug of this.bugs) bug.update(dt, this.time);
 
-    // Welle vorbei? (nichts mehr zu spawnen, keine Bugs aktiv, kein Banner, kein Boss) → nächste
+    // Beam × Bug
+    for (const beam of this.beams) {
+      if (beam.dead) continue;
+      for (const bug of this.bugs) {
+        if (bug.dead) continue;
+        if (beamHitsBug(beam, bug)) {
+          beam.dead = true;
+          bug.hit(1);
+          if (bug.dead) this.onKill(bug);
+          break;
+        }
+      }
+    }
+    this.beams = this.beams.filter((b) => !b.dead);
+
+    // Bug × Boden (Korruption) + tote/entkommene entfernen
+    for (const bug of this.bugs) {
+      if (!bug.dead && bugReachedFloor(bug, CONFIG.floorY)) { bug.escaped = true; this.onEscape(bug); }
+    }
+    this.bugs = this.bugs.filter((b) => !b.dead && !b.escaped);
+
+    // Combo-Timeout
+    if (this.combo > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) this.combo = 0;
+    }
+
+    // Welle vorbei? → nächste
     if (this.banner <= 0 && this.toSpawn === 0 && this.bugs.length === 0 && !this.bossPending) {
       this.startWave();
+    }
+  }
+
+  drawHud(ctx) {
+    ctx.fillStyle = "#c9d1d9";
+    ctx.font = "16px ui-monospace, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`Score ${this.score}`, 16, 26);
+    ctx.textAlign = "center";
+    ctx.fillText(`Welle ${this.wave}`, this.W / 2, 26);
+    ctx.textAlign = "right";
+    ctx.fillText(`Leben ${"♥".repeat(Math.max(0, this.lives))}`, this.W - 16, 26);
+    const mult = this.multiplier();
+    if (mult > 1) {
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#7ee787";
+      ctx.fillText(`×${mult}`, this.W / 2, 50);
     }
   }
 
@@ -122,9 +193,13 @@ export class Game {
       ctx.fillText("Klick zum Start", this.W / 2, 320);
     } else if (this.state === STATE.GAMEOVER) {
       ctx.font = "40px ui-monospace, monospace";
-      ctx.fillText("BUILD BROKEN", this.W / 2, 240);
-      ctx.font = "18px ui-monospace, monospace";
-      ctx.fillText("R / Klick = neu", this.W / 2, 320);
+      ctx.fillStyle = "#f85149";
+      ctx.fillText("BUILD BROKEN", this.W / 2, 230);
+      ctx.fillStyle = "#c9d1d9";
+      ctx.font = "20px ui-monospace, monospace";
+      ctx.fillText(`Score: ${this.score}`, this.W / 2, 290);
+      ctx.fillText(`Best: ${this.best}`, this.W / 2, 322);
+      ctx.fillText("R / Klick = neu", this.W / 2, 380);
     } else if (this.state === STATE.PAUSED) {
       ctx.font = "32px ui-monospace, monospace";
       ctx.fillText("Pause", this.W / 2, this.H / 2);
@@ -133,6 +208,7 @@ export class Game {
       for (const bug of this.bugs) bug.draw(ctx, this.time);
       for (const b of this.beams) b.draw(ctx);
       this.duck.draw(ctx);
+      this.drawHud(ctx);
       if (this.banner > 0) {
         ctx.fillStyle = "#c9d1d9";
         ctx.font = "32px ui-monospace, monospace";
