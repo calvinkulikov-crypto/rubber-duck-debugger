@@ -84,3 +84,60 @@ export class Beam {
     ctx.restore();
   }
 }
+
+export class Bug {
+  // typeKey: "standard" | "fast" | "tank"; speedMult skaliert vy pro Welle
+  constructor(typeKey, x, speedMult, phase) {
+    const t = CONFIG.bugTypes[typeKey];
+    this.type = typeKey;
+    this.x = x;
+    this.y = -t.r;
+    this.r = t.r;
+    this.vy = t.vy * speedMult;
+    this.hp = t.hp;
+    this.maxHp = t.hp;
+    this.points = t.points;
+    this.color = t.color;
+    this.label = t.labels[Math.floor((phase * 97) % t.labels.length)];  // deterministische Wahl
+    this.phase = phase;          // für Krabbel-/Drift-Animation
+    this.flash = 0;
+    this.dead = false;
+    this.escaped = false;
+    this.isBoss = false;
+  }
+  update(dt, time) {
+    this.y += this.vy * dt;
+    this.x += Math.sin((time + this.phase) * 2.4) * 18 * dt; // leichter Drift
+    if (this.flash > 0) this.flash = Math.max(0, this.flash - dt);
+  }
+  hit(dmg = 1) { this.hp -= dmg; this.flash = 0.12; if (this.hp <= 0) this.dead = true; }
+  draw(ctx, time) {
+    const wob = Math.sin((time + this.phase) * 10) * this.r * 0.12;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.fillStyle = this.flash > 0 ? "#ffffff" : this.color;
+    // Körper
+    ctx.beginPath();
+    ctx.ellipse(0, 0, this.r, this.r * 0.82, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Beinchen
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 2;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * this.r * 0.5, this.r * 0.5);
+      ctx.lineTo(i * this.r * 0.7, this.r * 0.9 + wob);
+      ctx.stroke();
+    }
+    // Augen
+    ctx.fillStyle = "#0d1117";
+    ctx.beginPath(); ctx.arc(-this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
+    // Label
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "11px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(this.label, 0, -this.r - 6);
+    ctx.restore();
+  }
+}
