@@ -85,7 +85,10 @@ export class Game {
     const line = it.lines[it.li];
     if (it.ci < line.text.length) {
       it.t += dt;
-      while (it.t >= 1 / it.cps && it.ci < line.text.length) { it.t -= 1 / it.cps; it.ci += 1; }
+      while (it.t >= 1 / it.cps && it.ci < line.text.length) {
+        it.t -= 1 / it.cps; it.ci += 1;
+        if (line.text[it.ci - 1] !== " ") this.sound?.keyClick?.(0);   // Tipp-Klick pro Zeichen
+      }
     } else if (it.li < it.lines.length - 1) {
       it.li += 1; it.ci = 0; it.t = 0;       // nächste Zeile
     } else {
@@ -593,6 +596,7 @@ export class Game {
     ctx.fillText("claude-code · rubber-duck-debugger", 40, 70);
     const it = this.intro;
     let y = 150;
+    let caretX = 110, caretY = y;       // Cursor folgt dem Ende der aktiven Tipp-Zeile
     for (let i = 0; i <= it.li; i++) {
       const line = it.lines[i];
       const shown = i < it.li ? line.text : line.text.slice(0, it.ci);
@@ -602,12 +606,19 @@ export class Game {
       ctx.fillStyle = "#c9d1d9";
       ctx.font = "18px ui-monospace, monospace";
       const wrapped = shown.match(/.{1,62}(\s|$)/g) || [shown];   // grober Umbruch bei ~62 Zeichen
-      for (const w of wrapped) { ctx.fillText(w, 110, y); y += 28; }
+      for (let k = 0; k < wrapped.length; k++) {
+        ctx.fillText(wrapped[k], 110, y);
+        if (i === it.li && k === wrapped.length - 1) {            // Naht hinter dem letzten Zeichen
+          caretX = 110 + ctx.measureText(wrapped[k]).width;
+          caretY = y;
+        }
+        y += 28;
+      }
       y += 16;
     }
-    // Cursor an der aktiven Zeile
+    // blinkender Cursor sitzt an der Naht der aktiven Zeile → wirkt wie lebendiges Tippen
     if ((Math.floor(this.time * 2) % 2) === 0) {
-      ctx.fillStyle = "#7ee787"; ctx.fillRect(110, y - 36, 9, 18);
+      ctx.fillStyle = "#7ee787"; ctx.fillRect(caretX + 3, caretY - 15, 9, 18);
     }
     ctx.fillStyle = "#6e7681"; ctx.font = "13px ui-monospace, monospace";
     ctx.textAlign = "center";
