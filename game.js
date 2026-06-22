@@ -3,6 +3,7 @@ import { Duck, Beam, Bug, Boss, Particle, FloatingText } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
+  matchCommand, pickTarget,
 } from "./mechanics.js";
 
 export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
@@ -31,6 +32,8 @@ export class Game {
     this.shake = 0;
     this.duck = new Duck();
     this.fireCd = 0;
+    this.typed = "";          // live getippter Command
+    this.target = null;       // gelockter Bug/Boss
     this.time = 0;
     this.toSpawn = 0;          // verbleibendes Bug-Budget der aktuellen Welle
     this.spawnTimer = 0;
@@ -56,6 +59,68 @@ export class Game {
   confirm() {
     if (this.state === STATE.TITLE) this.start();
     else if (this.state === STATE.GAMEOVER) this.start();
+  }
+
+  releaseTarget() {
+    if (this.target) this.target.typedLen = 0;
+    this.target = null;
+    this.typed = "";
+  }
+
+  // Tippfehler: Combo bricht + Glitch/Buzz, aber Lock & Buffer BLEIBEN (nur das Falsch-Zeichen verpufft).
+  syntaxError() {
+    this.combo = 0;
+    this.shake = Math.max(this.shake, 0.18);
+    this.sound?.damage();
+  }
+
+  handleBackspace() {
+    if (!this.target) return;
+    this.typed = this.typed.slice(0, -1);
+    this.target.typedLen = this.typed.length;
+    if (this.typed.length === 0) this.releaseTarget();
+  }
+
+  handleChar(ch) {
+    if (this.state !== STATE.PLAYING) return;
+    ch = ch.toLowerCase();          // CapsLock egal (Commands sind lowercase)
+    if (ch === " ") return;         // Space ist kein Command-Zeichen → ignorieren, nicht als Fehler werten
+    // verwaistes Ziel (tot/entkommen/weg) → Lock fallen lassen
+    if (this.target && (this.target.dead || this.target.escaped || !this.bugs.includes(this.target))) {
+      this.releaseTarget();
+    }
+    // Kein Ziel: per erstem Zeichen das tiefste passende Bug locken
+    if (!this.target) {
+      const idx = pickTarget(this.bugs, ch);
+      if (idx < 0) return;              // kein passender Bug → Eingabe verpufft
+      this.target = this.bugs[idx];
+      this.typed = "";
+    }
+    const r = matchCommand(this.target.command, this.typed, ch);
+    if (!r.ok) { this.syntaxError(); return; }
+    this.typed = r.buffer;
+    this.target.typedLen = this.typed.length;
+    // pro korrektem Zeichen ein Execute-Strahl von der Ente zum Ziel
+    const m = this.duck.muzzle();
+    this.beams.push(new Beam(m.x, m.y, this.target.x, this.target.y));
+    this.duck.triggerRecoil();
+    this.fireCd = CONFIG.beam.cooldown;
+    this.sound?.fire();
+    if (r.complete) this.executeTarget();
+  }
+
+  // Command fertig getippt: Boss schreitet in der Sequenz voran, sonst Kill.
+  executeTarget() {
+    const t = this.target;
+    if (t.isBoss && t.seq < t.commands.length - 1) {
+      t.advance();                 // nächster Command, teleport
+      this.sound?.bossHit();
+      this.releaseTarget();
+      return;
+    }
+    t.dead = true;
+    this.onKill(t);
+    this.releaseTarget();
   }
 
   startWave() {
@@ -137,41 +202,23 @@ export class Game {
       if (this.spawnTimer <= 0) { this.spawnBug(); this.toSpawn -= 1; this.spawnTimer = this.spawnInterval(); }
     }
 
+    // Ente zielt automatisch: gleitet unter das gelockte Ziel, sonst zur Mitte
+    this.input.mouseX = this.target ? this.target.x : this.W / 2;
     this.duck.update(dt, this.input);
 
-    // Feuern (Autofire bei gehaltenem Button/Space, per Cooldown gedrosselt)
+    // Beams sind rein kosmetisch (in handleChar gespawnt) → nur fortbewegen
     this.fireCd -= dt;
-    if (this.input.firing && this.fireCd <= 0) {
-      const m = this.duck.muzzle();
-      this.beams.push(new Beam(m.x, m.y));
-      this.duck.triggerRecoil();
-      this.fireCd = CONFIG.beam.cooldown;
-      this.sound?.fire();
-    }
     for (const b of this.beams) b.update(dt);
-
     for (const bug of this.bugs) bug.update(dt, this.time);
-
-    // Beam × Bug
-    for (const beam of this.beams) {
-      if (beam.dead) continue;
-      for (const bug of this.bugs) {
-        if (bug.dead) continue;
-        if (beamHitsBug(beam, bug)) {
-          beam.dead = true;
-          bug.hit(1);
-          if (bug.dead) this.onKill(bug);
-          else if (bug.isBoss) this.sound?.bossHit();
-          else if (bug.type === "tank") this.sound?.tankHit();
-          break;
-        }
-      }
-    }
     this.beams = this.beams.filter((b) => !b.dead);
 
     // Bug × Boden (Korruption) + tote/entkommene entfernen
     for (const bug of this.bugs) {
-      if (!bug.dead && bugReachedFloor(bug, CONFIG.floorY)) { bug.escaped = true; this.onEscape(bug); }
+      if (!bug.dead && bugReachedFloor(bug, CONFIG.floorY)) {
+        bug.escaped = true;
+        if (bug === this.target) this.releaseTarget();
+        this.onEscape(bug);
+      }
     }
     this.bugs = this.bugs.filter((b) => !b.dead && !b.escaped);
 
