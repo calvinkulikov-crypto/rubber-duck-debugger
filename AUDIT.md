@@ -1,96 +1,55 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 (Pivot FREIGEGEBEN — Plan-Bau startet; Intro-Idee in Scope)
+**Letztes Update:** 2026-06-22 22:45 | Branch `wow-polish` | HEAD `8f38675`
 
-## AKTIVER PIVOT — „Claude-Code Debugger" (Command-Typing statt Shooter)
+## AKTUELLER STAND
 
-**Warum:** Calvin: aktuelles Spiel = nur Shooter-Klon mit eigenem Design. Ziel = echtes
-Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen (per AskUserQuestion):
-1. Richtung = **„Erklären statt Schießen"** (Mechanik weg vom Shooter).
-2. Tipp-Inhalt = **„Claude-Code-Flavor, keine API"** (rein statisch, kein Backend, kein Kostenrisiko).
+Alle Features gebaut, verifiziert (24/24 Tests, node --check, headless smoke), gepusht.
 
-**FREIGABE ERTEILT 2026-06-22** — Pivot wird gebaut. Zusätzlich in Scope: **Intro „Hey Claude"** (s.u.).
+### Submission-Polish (fertig)
+1. **Share-Button** Game-Over → „⧉ Ergebnis kopieren" → Clipboard (Wave/Score/URL)
+2. **Intro** 4 Zeilen, Gummiente-Pointe zuletzt
+3. **Start-Button** „▶ $ npm run debug"
+4. **Welle 1 dichter** — `baseBudget` 3→4, `spawnIntervalBase` 1.4→1.2
+5. **README** 3-Satz-Pitch + Konzept + Technik
 
-**Design (freigegeben):**
-- *Mechanik:* Bugs sinken mit **Slash-Command als Label** (`/fix /test /revert /refactor` …). Spieler
-  **tippt den Command** → erster Buchstabe lockt nächsten passenden Bug (ZType-auto-lock), jeder
-  korrekte Buchstabe feuert Execute-Strahl, Command fertig = Bug platzt. Tippfehler = „syntax error"
-  (Combo bricht, roter Glitch). Keine Maus-Bewegung mehr, Ente zielt automatisch. **Terminal-Prompt**
-  unten zeigt Getipptes live (Claude-Code-Vibe, neues Optik-Element).
-- *Bleibt:* Duck/Bug/Boss/Beam/Particle/FloatingText, Wellen, Score/Combo/Leben/GameOver, IDE-BG,
-  Juice, Hi-DPI, alle mechanics.js-Tests.
-- *Raus:* Maus-Bewegung, Autofire, Klick-Feuern.
-- *Neu:* Tipp-Buffer + Lock-State + Targeting (game.js), Terminal-Render, Input-Remap (main.js:
-  Buchstaben→Buffer, Backspace=Korrektur, Esc=Pause), config-Labels → Commands, neue reine Funktion
-  `matchCommand()` in mechanics.js (unit-testbar → TDD bleibt grün).
-- *Content:* Command-Pool nach Tier — kurz/häufig `/fix /test /lint /retry`; Tank/lang
-  `/refactor /rollback /mutex /rebase`; Boss-„Incident" = Mehrwort-Sequenz `/triage`→`/rollback`→`/ship`
-  (teleportiert zwischen Commands).
-- *Lock-Default:* auto-lock-nächster passender Bug (anfängerfreundlich). Alt: frei-zielen/blind tippen.
-- *Scope:* additiver Branch, statisches T1–T12-Game bleibt Fallback. ~6–8 Tasks.
-- *Intro (Idee 1, IN SCOPE):* Title-Screen als getippter Claude-Code-Dialog — User-Zeile
-  „Hey Claude, lass uns ein Spiel bauen" tippt sich selbst, Claude-Antwort-Zeile folgt, dann
-  startet Game. Reine Render-/Timing-Sache, keine neue Mechanik. Skippbar (Taste/Klick).
+### Wow-Picks (alle 7 fertig)
+1. Quack beim Bug-Kill
+2. Autocomplete-Ghost (Lock-Vorschau)
+3. /ultrathink Superpower (Skill-Meter, Enter, Screen-Clear + Slow-Mo)
+4. Kill-Partikel = fallende Code-Zeichen (CodeBit)
+5. Boss-Arena-Alarm (Dunkel + Rot-Rand + INCIDENT-Banner)
+6. Boss-Tension-Drone (55Hz, Tremolo, idempotent)
+7. Intro-Cohesion (Cursor folgt Tipp-Caret, keyClick pro Zeichen)
 
-## Backlog — nach Abgabe (Di 18:00), NICHT vor Deadline anfassen
-- **On-Theme-Politur (Idee 2):** Syntax-Farben, Scanlines/CRT, Glow, Tiefe.
-  **Wasser-Revision 2026-06-22 (Calvin):** voll-Gewässer-BG bleibt verworfen (clasht mit IDE/Terminal-
-  Theme = Alleinstellungsmerkmal) — ABER **Minimal-Wasser als Mittelweg umgesetzt** (Ente = Rubber Duck
-  → schwimmt): transluzente Wasserfläche + animierte Wellenlinie an `floorY`, Ente bobbt/schaukelt,
-  Ripple. Terminal-Prompt bleibt lesbar. Siehe Iteration 3.
-- **Skill-Trigger (Idee 3):** auslösbare „Superpower" als In-Game-Power (z.B. Screen-Clear/
-  Slow-Mo). Neue Mechanik → erst nach Abgabe.
-- **MCP (Idee 4):** echtes MCP nicht machbar (statisch, kein Backend, Tech-Guardrail).
-  Nur als Flavor/Naming denkbar (Gegner-/Power-Typ „MCP").
+### Session-Ende-Fix
+- **Intro wartet auf Input** — kein Auto-Sprung mehr. Nach fertigem Tippen blinkt „› Enter / Klick = weiter"
+- **Shake-Reset** in `enterTitle()` — kein Jitter nach Death
+- **Background-Musik** — Lookahead-Sequencer, Pentatonik-Arpeggio während PLAYING
 
-**STAND PIVOT:** Code **Task 0–6 + 2 Playtest-Iterationen fertig + gepusht auf Branch `pivot-typing`**
-(commands statt labels, Typing, Execute-Strahlen, Boss-Sequenz, Terminal-Prompt, Input-Remap,
-Intro „Hey Claude"). **Iteration 1 (Speed/Targeting):** vy gesenkt (fast 130→78, std 60→44, tank 45→30),
-Wave-Budget 4+2n→3+n, Spawn langsamer; Auto-Lock → freies Buffer-Targeting (`pickTargetByBuffer`,
-jeder Bug in beliebiger Reihenfolge killbar). **Iteration 2 (Claude-Code-Theme):** echte CC-Commands
-(`/help /model /init /status /memory /agents` · `/mcp /vim /bug /ide /login` · `/permissions
-/terminal-setup /output-style /add-dir`); **Spezial-Bugs** (leuchten): `/clear`=Feld leeren,
-`/compact`=Slow-Mo 3s, `/cost`=Bonus-Score; Boss „Heisenbug"→„Context Overflow" (`/compact→/clear→/resume`).
-**Iteration 3 (Minimal-Wasser, 2026-06-22):** Ente schwimmt jetzt — transluzenter Wasserkörper
-(Verlauf) + animierte Wellen-Oberfläche an `floorY`, `Duck.bobT` → Auf-und-Ab + leichtes Schaukeln,
-expandierende Ripple unter der Ente (`game.js:drawWater`, in `drawPlayfield` nach `drawBackground`).
-Bewusst transluzent → Terminal/IDE-Look bleibt intakt. Deterministisch (kein `Math.random` im Pfad).
-Verifiziert: **19/19 mechanics-Tests grün**, `node --check` alle Files, **headless Smoke** (clear leert
-Feld, compact-Slow-Mo skaliert vy, cost-Bonus, freie Reihenfolge; Render-Pfad gegen Stub-ctx crashfrei).
-`main`-HEAD = statisches T12 = Fallback.
+## NÄCHSTE SCHRITTE (Calvin)
 
-**OFFEN = Task 7 (braucht Calvin/Browser):** 1) `python3 -m http.server 8000` → Playtest 3–4 Runden:
-Speed jetzt ok? Spezial-Bug-Frequenz (16%) angenehm? `/c`-Cluster (clear/compact/cost) verwirrend? → nur
-`config.js`-Werte justieren. **NEU: Wasser optisch prüfen** — Wellen sichtbar/Ente schwimmt, aber
-Terminal-Prompt + Code lesbar (nicht aufdringlich)? Falls zu stark/schwach → Alpha in `drawWater` justieren. 2) Konsole error/404-frei (Intro→Play→Boss→GameOver→Restart). 3) Erst NACH
-bestandenem Playtest: `git checkout main && git merge --no-ff pivot-typing && git push origin main`.
-4) `! npx vercel` (Login interaktiv, Calvin) → Live-URL == lokal → Repo+Live-Link in Abgabe-Thread.
-**Deadline: Di 18:00 = morgen.** Kippt der Pivot → `main` (statisch) ist abgabefähig.
+1. **Playtest** — `python3 -m http.server 8000` → Cmd+Shift+R → testen:
+   - Intro wartet, Blinkprompt erscheint
+   - Title-Animationen (Typewriter, Duck, Ambient-Bugs, Musik)
+   - Kein Menü-Jitter nach Death
+   - Share-Button auf Game-Over-Screen
+   - Audio-Delay? (welcher Browser? erst ab 1. Taste oder später? mit Mute?)
 
-## Stand
-- Setup ✓, Spec ✓, Plan (13 Tasks) ✓, Premortem (PROCEED) ✓.
-- **Code T1–T12 fertig + gepusht:** Scaffolding, mechanics.js (+8 node:test grün), State-Machine,
-  Duck, Beam, Bugs+Spawner/Wellen, Kollision+Score/Combo+Leben+GameOver+HUD, Heisenbug-Boss,
-  Juice (Partikel-Burst/FloatingText/WebAudio-Sound/Screen-Shake-Jitter), Fake-IDE-Hintergrund
-  + Code-Korruption (T10), Screens-Politur + localStorage Best + Touch-Hinweis (T11), Hi-DPI (T12).
-- Komplettes Spiel steht, jederzeit abgabefähig. 6/6 Files `node --check` ok, 8/8 Tests grün.
-- Lokaler Testserver: `python3 -m http.server 8000 --directory .` → http://localhost:8000
-- **Bewusste Plan-Abweichungen:** (T9) Partikel via `Math.random()`-Radial-Burst statt
-  position-pseudo-random (Plan-Code hätte alle 10 Partikel identisch fliegen lassen; premortem
-  sanktioniert Browser-`Math.random()`); zusätzl. `bossHit`-Sound bei Boss-Nicht-Kill-Treffer.
+2. **Merge + Deploy**
+   ```
+   git checkout main
+   git merge --no-ff wow-polish
+   git push origin main
+   ! npx vercel
+   ```
 
-## Nächste Schritte (brauchen Calvin / Browser)
-- **T12-Rest:** manueller Playtest 3–4 Runden → nur `config.js`-Werte justieren (vy/spawn/cooldown/
-  boss-hp/combo-cap). Bis Feedback da ist, Startwerte unverändert gelassen.
-- **Browser-Smoke:** Seite laden, Konsole auf Errors/404 prüfen, Start klicken, ~2s laufen lassen
-  (lokal `python3 -m http.server 8000`). Geht erst wieder mit verbundener Playwright-Bridge oder von Hand.
-- **T13 Deploy:** `npx vercel` als statische Seite (Preset „Other", kein build-script) → Live-URL,
-  Konsole prüfen, gegen lokal abgleichen → Repo-Link + Live-Link in Abgabe-Thread (vor **Di 18:00**).
-  `npx vercel` braucht interaktiven Login — von Calvin auszulösen (`! npx vercel`).
-- Premortem-Mitigation: früher Wegwerf-Deploy zum De-Risken der Pipeline empfohlen.
+3. **Abgabe** — Repo-Link + Live-Link in SKAILE-Abgabe-Thread. Deadline: Di 2026-06-23 18:00.
 
-## Blocker / Notizen
-- Playwright-MCP-Bridge (Browser-Extension) nicht verbunden → kein automatisches Headless-Rendering;
-  Logik via node:test/`node --check` verifiziert, Optik/Feel + Live-Check brauchen manuellen Playtest.
-- GateGuard-Hook (ECC fact-forcing) feuert bei neuen Dateien; in `.claude/settings.local.json`
-  deaktiviert → greift ab nächster Session.
+## Offen / Optional
+- Leaderboard (Upstash Redis + Vercel Serverless) — NUR bei ≥4h Restzeit, CORS/Deploy-Risiko.
+- Audio-Delay-Diagnose: falls nach Playtest noch vorhanden → Browser + Timing-Infos von Calvin.
+
+## Branch-Klarstellung
+`wow-polish` = SUPERSET (Typing-Pivot + alle Politur-Commits). `main` = Fallback (Typing-Pivot ohne Politur).
+Ship-Kandidat = `wow-polish`.

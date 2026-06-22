@@ -160,16 +160,20 @@ export class Bug {
     ctx.fillStyle = "#0d1117";
     ctx.beginPath(); ctx.arc(-this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
-    // Command-Label: getippter Teil grün, Rest grau
+    // Command-Label: getippter Teil grün, Rest grau — dunkles Pill als Hintergrund
     ctx.font = "12px ui-monospace, monospace";
     const cmd = this.command;
     const done = cmd.slice(0, this.typedLen);
-    const x0 = -ctx.measureText(cmd).width / 2;
+    const fullW = ctx.measureText(cmd).width;
+    const x0 = -fullW / 2;
+    const labelY = -this.r - 6;
+    ctx.fillStyle = "rgba(13,17,23,0.82)";
+    ctx.fillRect(x0 - 4, labelY - 13, fullW + 8, 17);
     ctx.textAlign = "left";
     ctx.fillStyle = "#7ee787";
-    ctx.fillText(done, x0, -this.r - 6);
+    ctx.fillText(done, x0, labelY);
     ctx.fillStyle = "#8b949e";
-    ctx.fillText(cmd.slice(this.typedLen), x0 + ctx.measureText(done).width, -this.r - 6);
+    ctx.fillText(cmd.slice(this.typedLen), x0 + ctx.measureText(done).width, labelY);
     ctx.restore();
   }
 }
@@ -211,7 +215,8 @@ export class Boss {
   draw(ctx, time) {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.fillStyle = this.flash > 0 ? "#ffffff" : this.color;
+    const bossCol = this.hp >= 9 ? "#56b6c2" : this.hp >= 5 ? "#e5a236" : "#f85149";
+    ctx.fillStyle = this.flash > 0 ? "#ffffff" : bossCol;
     ctx.beginPath();
     ctx.ellipse(0, 0, this.r, this.r * 0.85, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -220,7 +225,7 @@ export class Boss {
     ctx.beginPath(); ctx.arc(this.r * 0.32, -this.r * 0.18, this.r * 0.13, 0, Math.PI * 2); ctx.fill();
     // Fortschritt = wie viele Commands der Sequenz erledigt
     ctx.fillStyle = "#30363d"; ctx.fillRect(-this.r, -this.r - 26, this.r * 2, 6);
-    ctx.fillStyle = "#56b6c2"; ctx.fillRect(-this.r, -this.r - 26, this.r * 2 * (this.seq / this.commands.length), 6);
+    ctx.fillStyle = bossCol; ctx.fillRect(-this.r, -this.r - 26, this.r * 2 * (this.seq / this.commands.length), 6);
     ctx.fillStyle = "#8b949e"; ctx.font = "12px ui-monospace, monospace"; ctx.textAlign = "center";
     ctx.fillText(this.label, 0, -this.r - 32);
     const cmd = this.command;
@@ -253,6 +258,63 @@ export class Particle {
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x - 2, this.y - 2, 4, 4);
     ctx.globalAlpha = 1;
+  }
+}
+
+// Fallendes Code-Zeichen beim Bug-Kill: der Bug „zerfällt" sichtbar in Quelltext-Trümmer.
+// Erst nach oben/außen geschleudert, dann zieht Gravitation es runter → es regnet Code.
+export class CodeBit {
+  static GLYPHS = ["{", "}", "(", ")", ";", "/", "<", ">", "=", "0", "1", "*", "+", "$", "_", "λ"];
+  static COLORS = ["#7ee787", "#79c0ff", "#d2a8ff", "#ffd23f", "#ff7b72"];   // Syntax-Palette
+  constructor(x, y) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 40 + Math.random() * 130;
+    this.x = x; this.y = y;
+    this.vx = Math.cos(a) * sp * 0.65;
+    this.vy = Math.sin(a) * sp - 130;                                   // Aufwärts-Bias → Bogen
+    this.char = CodeBit.GLYPHS[(Math.random() * CodeBit.GLYPHS.length) | 0];
+    this.color = CodeBit.COLORS[(Math.random() * CodeBit.COLORS.length) | 0];
+    this.size = 12 + ((Math.random() * 7) | 0);
+    this.rot = Math.random() * Math.PI * 2;
+    this.vr = (Math.random() * 2 - 1) * 7;                              // Drehung im Flug
+    this.life = 0.8 + Math.random() * 0.55;
+    this.max = this.life; this.dead = false;
+  }
+  update(dt) {
+    this.x += this.vx * dt; this.y += this.vy * dt; this.vy += 520 * dt;  // Gravitation
+    this.vx *= 0.99;
+    this.rot += this.vr * dt;
+    this.life -= dt; if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life / this.max);
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.fillStyle = this.color;
+    ctx.font = `bold ${this.size}px ui-monospace, monospace`;
+    ctx.textAlign = "center";
+    ctx.fillText(this.char, 0, 0);
+    ctx.restore();
+  }
+}
+
+export class Ring {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.color = color;
+    this.life = 0.4; this.max = 0.4; this.dead = false;
+  }
+  update(dt) { this.life -= dt; if (this.life <= 0) this.dead = true; }
+  draw(ctx) {
+    const p = 1 - this.life / this.max;                 // 0 → 1 expandierend
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life / this.max) * 0.7;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 6 + p * 42, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

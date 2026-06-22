@@ -1,12 +1,12 @@
 :root { color-scheme: dark; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { height: 100%; }
 body {
+  min-height: 100vh;
   background: #0d1117;
   display: flex; align-items: center; justify-content: center;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-main { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
+main { padding: 12px; }
 #game {
   width: min(96vw, calc(96vh * 4 / 3));   /* 800x600 = 4:3, skaliert, behält Ratio */
   height: auto; aspect-ratio: 4 / 3;

@@ -12,18 +12,48 @@ function unlockAudio() { sound.init(); sound.resume(); }
 window.addEventListener("mousedown", unlockAudio, { once: true });
 window.addEventListener("keydown", unlockAudio, { once: true });
 
-canvas.addEventListener("mousedown", () => {
-  if (game.state !== STATE.PLAYING) game.confirm();   // Klick = Start/Skip/Restart, NICHT feuern
+// Intro-Tipp-Sound: Klick während Tipp-Phase schaltet Audio frei ohne Intro zu überspringen.
+// Enter/Space überspringen weiterhin immer (intentionaler Skip).
+function unlockDuringIntro(e) {
+  if (game.state !== STATE.INTRO || game.intro.done) return;
+  // Intentionaler Skip → normal propagieren lassen
+  if (e.code === "Enter" || e.code === "Space") return;
+  // Beliebiger anderer Klick/Taste → Audio unlock, kein Skip
+  sound.init(); sound.resume();
+  e.stopImmediatePropagation();
+  e.preventDefault();
+}
+window.addEventListener("mousedown", unlockDuringIntro, { capture: true });
+window.addEventListener("keydown", unlockDuringIntro, { capture: true });
+
+function eventToCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: ((e.clientX - r.left) / r.width) * CONFIG.canvas.w,
+    y: ((e.clientY - r.top) / r.height) * CONFIG.canvas.h,
+  };
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  const p = eventToCanvas(e);
+  if (game.hitMute(p.x, p.y)) { game.toggleMute(); return; }   // Mute zuerst, in jedem State
+  if (game.state === STATE.GAMEOVER && game.hitShare(p.x, p.y)) { game.copyShare(); return; }  // Share vor „zum Menü"
+  if (game.state !== STATE.PLAYING) game.confirm();            // sonst Start/Skip/Restart
 });
 
 window.addEventListener("keydown", (e) => {
   if (e.code === "Escape") { e.preventDefault(); game.togglePause(); return; }
+  // PAUSED: jede Taste (nicht nur Esc) setzt fort — verhindert Verwirrung nach visibilitychange
+  if (game.state === STATE.PAUSED) {
+    if (e.key.length === 1 || e.code === "Enter" || e.code === "Space") { e.preventDefault(); game.togglePause(); }
+    return;
+  }
   if (game.state !== STATE.PLAYING) {
     // Auf Intro/Title/GameOver: Enter/Space/Buchstabe = los
     if (e.code === "Enter" || e.code === "Space" || e.key.length === 1) { e.preventDefault(); game.confirm(); }
     return;
   }
-  // PLAYING: Tippen
+  // PLAYING: /ultrathink feuert auto per Combo; Enter ignoriert
   if (e.code === "Backspace") { e.preventDefault(); game.handleBackspace(); return; }
   // ein druckbares Zeichen (inkl. "/") → Buffer; Modifier-Kombis ignorieren
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -44,13 +74,25 @@ function setupHiDPI() {
 }
 setupHiDPI();
 
+function showError(e) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#f85149"; ctx.font = "bold 14px monospace";
+  ctx.fillText("JS ERROR:", 20, 30);
+  ctx.fillStyle = "#c9d1d9"; ctx.font = "12px monospace";
+  String(e?.stack || e).split("\n").forEach((t, i) => ctx.fillText(t.slice(0, 90), 20, 56 + i * 18));
+}
+window.addEventListener("error", (ev) => showError(ev.error || ev.message));
+
 let last = performance.now();
 function frame(now) {
   let dt = (now - last) / 1000;
   last = now;
   if (dt > 1 / 30) dt = 1 / 30;
-  game.update(dt);
-  game.draw(ctx);
+  try {
+    game.update(dt);
+    game.draw(ctx);
+  } catch (e) { showError(e); return; }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

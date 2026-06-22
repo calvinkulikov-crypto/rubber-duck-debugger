@@ -5,6 +5,7 @@ import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug,
   matchCommand, pickTarget, pickTargetByBuffer,
+  tokenizeLine, skillCharge, skillReady,
 } from "../mechanics.js";
 import { Bug } from "../entities.js";
 import { CONFIG } from "../config.js";
@@ -25,6 +26,19 @@ test("comboMultiplier steigt pro Tier, gedeckelt", () => {
 
 test("scoreForKill = base * multiplier", () => {
   assert.equal(scoreForKill(100, 3), 300);
+});
+
+test("skillCharge lädt bis max, kein Überlauf", () => {
+  assert.equal(skillCharge(0, 1, 10), 1);
+  assert.equal(skillCharge(9, 1, 10), 10);
+  assert.equal(skillCharge(10, 1, 10), 10);   // cap
+  assert.equal(skillCharge(8, 5, 10), 10);    // großer add deckelt
+});
+
+test("skillReady erst ab voll", () => {
+  assert.equal(skillReady(9, 10), false);
+  assert.equal(skillReady(10, 10), true);
+  assert.equal(skillReady(11, 10), true);
 });
 
 test("waveBudget = base + wave*per (1-indexiert)", () => {
@@ -127,4 +141,25 @@ test("pickTargetByBuffer trennt /c-Spezial-Commands sauber", () => {
   assert.equal(pickTargetByBuffer(bugs, "/cl"), 0);  // nur /clear
   assert.equal(pickTargetByBuffer(bugs, "/com"), 1); // nur /compact
   assert.equal(pickTargetByBuffer(bugs, "/cos"), 2); // nur /cost
+});
+
+test("tokenizeLine reconstructs the original line exactly", () => {
+  const line = "const debugDuck = new Duck();";
+  const toks = tokenizeLine(line);
+  assert.equal(toks.map((t) => t.text).join(""), line);
+});
+
+test("tokenizeLine colors keywords and comments", () => {
+  const kw = tokenizeLine("  return clean;");
+  const ret = kw.find((t) => t.text === "return");
+  assert.equal(ret.color, "#ff7b72");
+  const c = tokenizeLine("// TODO: more tests");
+  assert.equal(c[0].text, "// TODO: more tests");
+  assert.equal(c[0].color, "#8b949e");
+});
+
+test("tokenizeLine flags function-call names", () => {
+  const toks = tokenizeLine("debugDuck.quack();");
+  const quack = toks.find((t) => t.text === "quack");
+  assert.equal(quack.color, "#d2a8ff");
 });

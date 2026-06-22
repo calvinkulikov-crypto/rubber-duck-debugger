@@ -7,8 +7,8 @@ export const CONFIG = {
   combo: { perTier: 5, multCap: 8, timeout: 5 },
   lives: 3,
   waves: {
-    baseBudget: 3, perWave: 1, speedMult: 1.05, bossEvery: 5,
-    bannerTime: 1.6, spawnIntervalBase: 1.4, spawnIntervalMin: 0.65,
+    baseBudget: 4, perWave: 1, speedMult: 1.05, bossEvery: 5,
+    bannerTime: 1.6, spawnIntervalBase: 1.2, spawnIntervalMin: 0.65,
   },
   bugTypes: {
     standard: { r: 18, vy: 44,  hp: 1, points: 100, color: "#e06c75",
@@ -26,6 +26,9 @@ export const CONFIG = {
     { command: "/cost",    effect: "bonus",  r: 16, vy: 52, points: 400, color: "#ffd23f" },
   ],
   slowmoTime: 3.0, slowmoScale: 0.4, bonusScore: 1500,
+  // Skill-Meter „/ultrathink": lädt pro Kill, bei voll → Enter feuert (Screen-Clear + Slow-Mo).
+  skill: { comboTrigger: 15, slowmo: 2.0 },
   boss: { r: 48, vy: 26, hp: 12, points: 2000, color: "#56b6c2",
     label: "Context Overflow", commands: ["/compact", "/clear", "/resume"] },
+  fx: { scanlineAlpha: 0.06, scanlineGap: 3, vignette: 0.34, flowThreshold: 4 },
 };
