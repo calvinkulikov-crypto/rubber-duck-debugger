@@ -211,7 +211,8 @@ export class Boss {
   draw(ctx, time) {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.fillStyle = this.flash > 0 ? "#ffffff" : this.color;
+    const bossCol = this.hp >= 9 ? "#56b6c2" : this.hp >= 5 ? "#e5a236" : "#f85149";
+    ctx.fillStyle = this.flash > 0 ? "#ffffff" : bossCol;
     ctx.beginPath();
     ctx.ellipse(0, 0, this.r, this.r * 0.85, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -220,7 +221,7 @@ export class Boss {
     ctx.beginPath(); ctx.arc(this.r * 0.32, -this.r * 0.18, this.r * 0.13, 0, Math.PI * 2); ctx.fill();
     // Fortschritt = wie viele Commands der Sequenz erledigt
     ctx.fillStyle = "#30363d"; ctx.fillRect(-this.r, -this.r - 26, this.r * 2, 6);
-    ctx.fillStyle = "#56b6c2"; ctx.fillRect(-this.r, -this.r - 26, this.r * 2 * (this.seq / this.commands.length), 6);
+    ctx.fillStyle = bossCol; ctx.fillRect(-this.r, -this.r - 26, this.r * 2 * (this.seq / this.commands.length), 6);
     ctx.fillStyle = "#8b949e"; ctx.font = "12px ui-monospace, monospace"; ctx.textAlign = "center";
     ctx.fillText(this.label, 0, -this.r - 32);
     const cmd = this.command;

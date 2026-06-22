@@ -74,6 +74,8 @@ export class Game {
     this.leaked = 0; this.newBest = false;
     this.skillFlash = 0;    // > 0 = kurzer lila Ganzfeld-Flash nach /ultrathink
     this.shareCopied = 0;   // > 0 = „kopiert!"-Feedback am Share-Button (Game-Over)
+    this.panicQuackT = 0;
+    this.mergeConflictCd = 0;
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -157,10 +159,12 @@ export class Game {
   }
 
   handleBackspace() {
-    if (!this.target) return;
+    if (!this.target && !this.typed) return;
     this.typed = this.typed.slice(0, -1);
-    this.target.typedLen = this.typed.length;
-    if (this.typed.length === 0) this.releaseTarget();
+    if (this.target) {
+      this.target.typedLen = this.typed.length;
+      if (this.typed.length === 0) this.releaseTarget();
+    }
   }
 
   handleChar(ch) {
@@ -173,6 +177,19 @@ export class Game {
     }
     // Targeting folgt dem vollen Buffer → Spieler wählt Bug durch den Command den er tippt
     const candidate = this.typed + ch;
+    // Easter Egg: /quack — kann ohne Bug-Lock frei getippt werden
+    if ("/quack".startsWith(candidate) && pickTargetByBuffer(this.bugs, candidate) < 0) {
+      if (this.target) this.releaseTarget();
+      if (candidate === "/quack") {
+        this.typed = "";
+        this.triggerQuackEasterEgg();
+      } else {
+        this.typed = candidate;
+        this.sound?.keyClick(this.combo);
+        this.typedPunch = 0.12;
+      }
+      return;
+    }
     const idx = pickTargetByBuffer(this.bugs, candidate);
     if (idx < 0) {
       if (this.typed.length > 0) this.syntaxError();  // teilweiser Command, kein Match → Fehler
@@ -297,6 +314,16 @@ export class Game {
     return true;
   }
 
+  triggerQuackEasterEgg() {
+    const COLORS = ["#ffd23f", "#7ee787", "#79c0ff", "#d2a8ff", "#ff7b72"];
+    for (let i = 0; i < 25; i++) this.particles.push(new Particle(this.duck.x, this.duck.y - 20, COLORS[i % COLORS.length]));
+    this.texts.push(new FloatingText(this.duck.x, this.duck.y - 50, "🦆 QUACK!", "#ffd23f"));
+    this.shake = Math.max(this.shake, 0.25);
+    this.sound?.quack(8);
+    setTimeout(() => this.sound?.quack(10), 130);
+    setTimeout(() => this.sound?.quack(13), 260);
+  }
+
   // Spezial-Bug-Effekte: Claude-Code-Commands mit Spielfeld-Wirkung.
   applySpecial(effect, src) {
     if (effect === "clear") {
@@ -339,12 +366,22 @@ export class Game {
     this.shake = 0.5;            // crisp Death-Punch → klingt im GAMEOVER-Update kurz aus
     this.newBest = this.score > this.best;
     if (this.newBest) { this.best = this.score; this.saveBest(); }
+    this.saveLeaderboard(this.score, this.wave);
     this.sound?.gameOver();
     if (this.newBest) this.sound?.waveClear();   // Belohnungs-Chime für neue Bestmarke
   }
 
   loadBest() { try { return parseInt(localStorage.getItem("rdd_best") || "0", 10) || 0; } catch { return 0; } }
   saveBest() { try { localStorage.setItem("rdd_best", String(this.best)); } catch { /* privater modus: nur in-memory */ } }
+  loadLeaderboard() { try { return JSON.parse(localStorage.getItem("rdd_board") || "[]"); } catch { return []; } }
+  saveLeaderboard(score, wave) {
+    try {
+      const board = this.loadLeaderboard();
+      board.push({ score, wave });
+      board.sort((a, b) => b.score - a.score);
+      localStorage.setItem("rdd_board", JSON.stringify(board.slice(0, 5)));
+    } catch {}
+  }
 
   toggleMute() { this.muted = !this.muted; this.sound?.setMuted(this.muted); }
   muteIconRect() { return { x: this.W - 46, y: this.H - 30, w: 36, h: 26 }; }
@@ -393,6 +430,7 @@ export class Game {
     if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); return; }  // Pause → eingefroren
     this.time += dt;
     this.sound?.startMusic?.();    // Hintergrund-Melodie läuft während PLAYING (idempotent, restartet nach Pause)
+    if (this.sound) this.sound.panicMode = this.lives === 1;
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }
     if (this.typedPunch > 0) this.typedPunch = Math.max(0, this.typedPunch - dt);
     if (this.skillFlash > 0) this.skillFlash = Math.max(0, this.skillFlash - dt);
@@ -427,6 +465,31 @@ export class Game {
       }
     }
     this.bugs = this.bugs.filter((b) => !b.dead && !b.escaped);
+
+    // Panic-Quack: Ente warnt wenn ein Bug kurz vor dem Boden ist
+    const panicBug = this.bugs.some((b) => !b.isBoss && b.y > CONFIG.floorY - 120);
+    if (panicBug) {
+      this.panicQuackT -= dt;
+      if (this.panicQuackT <= 0) { this.sound?.quack(20); this.panicQuackT = 0.45; }
+    } else {
+      this.panicQuackT = 0;
+    }
+
+    // Merge Conflict: zwei Bugs überlappen → kurzer Warning-Text
+    this.mergeConflictCd -= dt;
+    if (this.mergeConflictCd <= 0) {
+      outer: for (let i = 0; i < this.bugs.length; i++) {
+        for (let j = i + 1; j < this.bugs.length; j++) {
+          const a = this.bugs[i], b = this.bugs[j];
+          if (a.isBoss || b.isBoss) continue;
+          if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r) {
+            this.texts.push(new FloatingText((a.x + b.x) / 2, Math.min(a.y, b.y) - 18, "<<<<<<< MERGE CONFLICT", "#e5c07b"));
+            this.mergeConflictCd = 1.5;
+            break outer;
+          }
+        }
+      }
+    }
 
     // Boss-Tension-Drone an Boss-Präsenz koppeln (idempotent → jeder Frame ok)
     if (this.bossActive()) this.sound?.startDrone?.(); else this.sound?.stopDrone?.();
@@ -500,6 +563,11 @@ export class Game {
       ctx.fillStyle = "#7ee787";
       const lastW = ctx.measureText(this.codeLines[this.codeLines.length - 1]).width;
       ctx.fillRect(56 + lastW + 2, 80 + (this.codeLines.length - 1) * 30 - 12, 8, 16);
+    }
+    // Panic-Mode: letztes Leben → rotes Flimmern über dem Editor
+    if (this.lives === 1) {
+      ctx.fillStyle = `rgba(248,81,73,${0.04 + 0.03 * Math.sin(this.time * 14)})`;
+      ctx.fillRect(0, 0, this.W, this.H);
     }
   }
 
@@ -776,6 +844,17 @@ export class Game {
       if (blink) {
         ctx.font = "18px ui-monospace, monospace";
         ctx.fillStyle = "#7ee787"; ctx.fillRect(cx + ctx.measureText(label).width / 2 + 5, by + 13, 11, 18);
+      }
+
+      // Leaderboard: Top 3 unter dem Start-Button
+      const lb = this.loadLeaderboard();
+      if (lb.length > 0) {
+        ctx.textAlign = "center"; ctx.font = "11px ui-monospace, monospace"; ctx.fillStyle = "#484f58";
+        ctx.fillText("TOP SCORES", cx, 436);
+        for (let i = 0; i < Math.min(lb.length, 3); i++) {
+          ctx.fillStyle = i === 0 ? "#ffd23f" : "#8b949e";
+          ctx.fillText(`#${i + 1}  ${lb[i].score}  ·  Wave ${lb[i].wave}`, cx, 451 + i * 15);
+        }
       }
 
       if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {

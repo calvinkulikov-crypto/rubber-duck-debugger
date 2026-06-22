@@ -1,6 +1,6 @@
 // Synthetisierte Effekte. Kein Asset, kein 404. Bei fehlendem WebAudio: still.
 export class Sound {
-  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; this.music = null; }
+  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; this.music = null; this.panicMode = false; }
   init() {
     if (this.ctx) return;
     try {
@@ -42,12 +42,12 @@ export class Sound {
     if (!this.ok || this.muted || this.music) return;
     const NOTES = [220.00, 261.63, 329.63, 392.00, 329.63, 261.63, 196.00, 246.94,
                    220.00, 261.63, 329.63, 261.63, 174.61, 220.00, 261.63, 220.00];
-    const STEP = 0.28;
     this.music = { step: 0, next: this.ctx.currentTime + 0.08, timer: null };
     const tick = () => {
       const m = this.music;
       if (!m) return;
       if (this.muted) { this.stopMusic(); return; }
+      const STEP = this.panicMode ? 0.21 : 0.28;
       const now = this.ctx.currentTime;
       if (m.next < now) m.next = now + 0.05;                       // Resync nach Jank/Tab-Wechsel
       while (m.next < now + 0.25) {                                // 250ms Lookahead
