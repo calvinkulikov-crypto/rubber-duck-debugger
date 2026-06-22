@@ -1,6 +1,18 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 21:40 (Wow-Picks 1–7 gebaut+gepusht, Playtest-Gate offen, HEAD `159cc12`)
+**Letztes Update:** 2026-06-22 22:10 (Submission-Polish-Batch gebaut+gepusht, Playtest-Gate offen, HEAD `3943df6`)
+
+## AKTUELLE SESSION — Submission-Polish (Branch `wow-polish`, HEAD `3943df6`)
+Aus Handoff-Liste gebaut, verifiziert (24/24 Tests, node --check, headless Smoke gameover+intro), gepusht:
+1. **Share-Button** Game-Over → „⧉ Ergebnis kopieren" kopiert `🦆 RDD — Wave N | Score X | <live-url>`
+   in die Zwischenablage (`shareText/copyShare/hitShare/shareRect` game.js, Click-Wiring main.js,
+   `shareCopied`-Feedback). URL = `location.origin` (auf Vercel automatisch live, lokal/file weggelassen).
+2. **Intro** +2 Zeilen, 🦆-Pointe zuletzt („Wer debuggt schon ohne Gummiente? 🦆").
+3. **Start-Button** „▶ Klick zum Start" → „▶ $ npm run debug" (on-theme, gleich wie Build-Log).
+4. **Welle 1 dichter:** `baseBudget` 3→4, `spawnIntervalBase` 1.4→1.2 (config.js).
+5. **README** für Submission neu: 3-Satz-Pitch + Konzept + Technik + Run/Deploy.
+
+**OFFEN:** Leaderboard (Upstash/Vercel) nur bei 4h Restzeit (CORS/Deploy-Risiko). Sonst → Playtest → Abgabe.
 
 ## ⚠ BRANCH-KLARSTELLUNG (war im AUDIT verwirrend)
 `pivot-typing` ist bereits in `main` gemerged (`main` = Typing-Pivot). **`wow-polish` ist abgezweigt
