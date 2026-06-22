@@ -316,6 +316,8 @@ git push origin wow-polish
 
 Bildschirmweiter Post-Process-Layer (über allen States), tunebar via neuem `CONFIG.fx`. Wird nach `ctx.restore()` gezeichnet → bleibt screen-space (kein Shake).
 
+> **Premortem-Mitigation (High):** FX darf die spielkritischen Texte NICHT überdecken — fallende Bug-`/command`-Labels + Terminal-Prompt müssen klar lesbar bleiben, besonders an den Rändern (Vignette dort am dunkelsten). `CONFIG.fx.vignette`/`scanlineAlpha` sind ein **tunebarer Deckel**: im Playtest-Gate verifizieren, im Zweifel senken.
+
 **Files:**
 - Modify: `config.js` (neuer `fx`-Block)
 - Modify: `game.js` (`drawFX` + Aufruf in `draw`)
@@ -657,10 +659,16 @@ git push origin wow-polish
 
 - [ ] **Calvin spielt 3–4 Runden** (`python3 -m http.server 8000 --directory .` → http://localhost:8000):
   - Konsole error/404-frei über Intro → Play → Boss → GameOver → Restart.
-  - Code-Highlighting + Terminal-Prompt trotz Scanlines/Vignette klar lesbar.
-  - Tippen fühlt sich taktil an (Key-Klick, Kick, Bounce), Kill wuchtig (Ring, Hit-Stop ohne Hänger).
-  - Audio gut, Mute-Icon klickbar in allen States.
+  - **(Premortem-High) Spielkritische Texte lesbar:** fallende Bug-`/command`-Labels **und** Terminal-Prompt
+    trotz Scanlines/Vignette/Flow-Glow klar lesbar — explizit an den **Rändern** (Vignette am dunkelsten)
+    und bei aktivem **grünem Flow-Glow** (grün-auf-grün-Labels prüfen). Wenn unklar: `CONFIG.fx.vignette` +
+    `CONFIG.fx.scanlineAlpha` senken, Flow-Glow-Alpha (0.22-Faktor in `drawFlow`) reduzieren.
+  - Code-Highlighting im Hintergrund sichtbar, aber dezent (bleibt Background, lenkt nicht ab).
+  - Tippen fühlt sich taktil an (Key-Klick, Kick, Bounce), Kill wuchtig (Ring, Hit-Stop **ohne Stottern**
+    bei Kill-Salven — sonst `this.hitstop` in Task 3 auf 0.03 senken).
+  - Audio gut, Key-Klick **nicht ermüdend/zu laut** (sonst gain senken), Mute-Icon klickbar in allen States.
   - Flow-State-Glow + „IN THE ZONE" sichtbar bei hoher Combo.
+  - **Framerate flüssig** trotz FX (sonst Scanlines als `createPattern` cachen).
 - [ ] Falls nötig: nur Tuning-Werte in `CONFIG.fx`/`CONFIG` justieren, committen, pushen.
 - [ ] **Merge nach `main` + Deploy** (erst nach bestandenem Playtest):
   ```bash
