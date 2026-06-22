@@ -23,6 +23,7 @@ function eventToCanvas(e) {
 canvas.addEventListener("mousedown", (e) => {
   const p = eventToCanvas(e);
   if (game.hitMute(p.x, p.y)) { game.toggleMute(); return; }   // Mute zuerst, in jedem State
+  if (game.state === STATE.GAMEOVER && game.hitShare(p.x, p.y)) { game.copyShare(); return; }  // Share vor „zum Menü"
   if (game.state !== STATE.PLAYING) game.confirm();            // sonst Start/Skip/Restart
 });
 

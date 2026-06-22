@@ -21,7 +21,9 @@ export class Game {
     this.intro = {
       lines: [
         { who: "you",    text: "Hey Claude, lass uns ein Spiel bauen." },
-        { who: "claude", text: "Klar. Bug-Debugger mit Gummiente: tipp die /commands, kill die Bugs, rette den Build. 🦆" },
+        { who: "claude", text: "Klar. Bug-Debugger mit Gummiente: tipp die /commands, kill die Bugs, rette den Build." },
+        { who: "you",    text: "Warte – die Gummiente ist wirklich dabei?" },
+        { who: "claude", text: "Wer debuggt schon ohne Gummiente? 🦆" },
       ],
       li: 0, ci: 0, t: 0, cps: 38, holdAfter: 1.1, holdT: 0,
     };
@@ -63,6 +65,7 @@ export class Game {
     this._mult = 1;         // letzter Multiplikator → Combo-Arpeggio/Flow-Trigger
     this.leaked = 0; this.newBest = false;
     this.skillFlash = 0;    // > 0 = kurzer lila Ganzfeld-Flash nach /ultrathink
+    this.shareCopied = 0;   // > 0 = „kopiert!"-Feedback am Share-Button (Game-Over)
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -316,11 +319,30 @@ export class Game {
     ctx.restore();
   }
 
+  // Share: kopiert Wave/Score (+ Live-URL, wenn deployt) in die Zwischenablage.
+  shareRect() { return { x: this.W / 2 - 140, y: 470, w: 280, h: 36 }; }
+  hitShare(px, py) {
+    const r = this.shareRect();
+    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+  }
+  shareText() {
+    const base = `🦆 Rubber Duck Debugger — Wave ${this.wave} | Score ${this.score}`;
+    const o = (typeof location !== "undefined" && location.origin) ? location.origin : "";
+    return (o && !o.startsWith("file")) ? `${base} | ${o}` : base;   // file:// → URL weglassen
+  }
+  copyShare() {
+    this.shareCopied = 1.6;   // optimistisches Feedback (Clipboard ist async)
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) navigator.clipboard.writeText(this.shareText());
+    } catch { /* Clipboard blockiert/unsicherer Kontext → Feedback trotzdem zeigen */ }
+  }
+
   update(dt) {
     if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
     if (this.state === STATE.GAMEOVER) {
       this.time += dt;                                                  // Cursor-Blink im Build-Log
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.2); // kurz wackeln → still
+      if (this.shareCopied > 0) this.shareCopied = Math.max(0, this.shareCopied - dt);
       this.sound?.stopDrone?.();
       return;
     }
@@ -653,7 +675,7 @@ export class Game {
     ctx.fillStyle = "#8b949e"; ctx.fillText("× 15 Kombi → Auto-Clear + Slow-Mo", rx, 410);
     ctx.textAlign = "center";
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
-    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("▶ Klick zum Start", this.W / 2, 448);
+    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("▶ $ npm run debug", this.W / 2, 448);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
     ctx.fillText(`Best: ${this.best}`, this.W / 2, 476);
     // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
@@ -692,8 +714,20 @@ export class Game {
       ctx.fillText("★ NEW HIGH SCORE ★", this.W / 2, ly + 16); ctx.restore();
       ly += 28;
     }
-    ctx.textAlign = "center"; ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
-    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("› Enter / Klick = zum Menü", this.W / 2, ly + 40);
+    // Share-Button (fixe Position → kein Overlap mit variabler Log-Höhe)
+    const sb = this.shareRect();
+    ctx.save();
+    ctx.fillStyle = this.shareCopied > 0 ? "rgba(126,231,135,0.22)" : "rgba(126,231,135,0.10)";
+    ctx.strokeStyle = "#7ee787"; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(sb.x, sb.y, sb.w, sb.h, 8); else ctx.rect(sb.x, sb.y, sb.w, sb.h);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.textAlign = "center"; ctx.fillStyle = "#7ee787"; ctx.font = "15px ui-monospace, monospace";
+    ctx.fillText(this.shareCopied > 0 ? "✓ in Zwischenablage kopiert!" : "⧉ Ergebnis kopieren", this.W / 2, sb.y + 24);
+    // Menü-Hinweis darunter
+    ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
+    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("› Enter / Klick = zum Menü", this.W / 2, 548);
   }
 
   // Flow-State: ab Schwelle grüner Rand-Glow, Intensität ∝ Multiplikator, im Takt pulsierend.

@@ -7,8 +7,8 @@ export const CONFIG = {
   combo: { perTier: 5, multCap: 8, timeout: 5 },
   lives: 3,
   waves: {
-    baseBudget: 3, perWave: 1, speedMult: 1.05, bossEvery: 5,
-    bannerTime: 1.6, spawnIntervalBase: 1.4, spawnIntervalMin: 0.65,
+    baseBudget: 4, perWave: 1, speedMult: 1.05, bossEvery: 5,
+    bannerTime: 1.6, spawnIntervalBase: 1.2, spawnIntervalMin: 0.65,
   },
   bugTypes: {
     standard: { r: 18, vy: 44,  hp: 1, points: 100, color: "#e06c75",
