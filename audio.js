@@ -1,6 +1,6 @@
 // Synthetisierte Effekte. Kein Asset, kein 404. Bei fehlendem WebAudio: still.
 export class Sound {
-  constructor() { this.ctx = null; this.ok = false; this.muted = false; }
+  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; }
   init() {
     if (this.ctx) return;
     try {
@@ -21,7 +21,38 @@ export class Sound {
     o.connect(g); g.connect(this.ctx.destination);
     o.start(t); o.stop(t + dur);
   }
-  setMuted(m) { this.muted = m; }
+  setMuted(m) { this.muted = m; if (m) this.stopDrone(); }
+  // Boss-Tension-Drone: tiefer, dumpfer Dauerton solang der Boss lebt (Game steuert Start/Stop).
+  //  • Sägezahn-Grundton (55 Hz) + Sinus-Quinte, durch Lowpass → bedrohlich-dumpf
+  //  • langsames Tremolo (0.7 Hz) → „atmende" Spannung
+  // Idempotent: startDrone() ohne Effekt wenn schon läuft, stopDrone() wenn keiner läuft.
+  startDrone() {
+    if (!this.ok || this.muted || this.drone) return;
+    const t = this.ctx.currentTime;
+    const o1 = this.ctx.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = 55;
+    const o2 = this.ctx.createOscillator(); o2.type = "sine";     o2.frequency.value = 82.5;
+    const f = this.ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 220;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05, t + 0.8);            // langsam einblenden
+    const lfo = this.ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 0.7;
+    const lfoDepth = this.ctx.createGain(); lfoDepth.gain.value = 0.02;
+    lfo.connect(lfoDepth); lfoDepth.connect(g.gain);
+    o1.connect(f); o2.connect(f); f.connect(g); g.connect(this.ctx.destination);
+    o1.start(t); o2.start(t); lfo.start(t);
+    this.drone = { o1, o2, lfo, g };
+  }
+  stopDrone() {
+    if (!this.drone) return;
+    const { o1, o2, lfo, g } = this.drone;
+    this.drone = null;
+    if (!this.ok) return;
+    const t = this.ctx.currentTime;
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);         // sauber ausblenden
+    o1.stop(t + 0.32); o2.stop(t + 0.32); lfo.stop(t + 0.32);
+  }
   keyClick(combo) { this.blip(300 + Math.min(combo, 14) * 36, 0.035, "square", 0.025); }
   comboUp(tier) {
     const base = 480 + tier * 55;

@@ -325,9 +325,10 @@ export class Game {
     if (this.state === STATE.GAMEOVER) {
       this.time += dt;                                                  // Cursor-Blink im Build-Log
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.2); // kurz wackeln → still
+      this.sound?.stopDrone?.();
       return;
     }
-    if (this.state !== STATE.PLAYING) return;
+    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); return; }  // Pause/Title → Drone aus
     this.time += dt;
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }
     if (this.typedPunch > 0) this.typedPunch = Math.max(0, this.typedPunch - dt);
@@ -363,6 +364,9 @@ export class Game {
       }
     }
     this.bugs = this.bugs.filter((b) => !b.dead && !b.escaped);
+
+    // Boss-Tension-Drone an Boss-Präsenz koppeln (idempotent → jeder Frame ok)
+    if (this.bossActive()) this.sound?.startDrone?.(); else this.sound?.stopDrone?.();
 
     // Combo-Timeout
     if (this.combo > 0) {
