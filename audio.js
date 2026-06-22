@@ -29,24 +29,27 @@ export class Sound {
   }
   fire()      { this.blip(680, 0.08, "square", 0.04, 880); }
   pop()       { this.blip(420, 0.12, "triangle", 0.07, 120); }
-  // Gummiente quakt beim Bug-Kill: nasaler Abwärts-Sweep (Sägezahn durch Bandpass),
-  // Tonhöhe steigt mit der Combo → „quak-quak-quak"-Crescendo beim Chainen.
+  // Gummiente quakt beim Bug-Kill: lauter Sägezahn durch Lowpass, Tonhöhe rauf-dann-runter
+  // ("qu-ack"). Grundfrequenz steigt mit der Combo → "quak-quak-quak"-Crescendo beim Chainen.
+  // Gain bewusst hoch (0.14), damit der Quack über gleichzeitiges fire()+keyClick() durchkommt.
   quack(combo = 0) {
     if (!this.ok || this.muted) return;
     const t = this.ctx.currentTime;
-    const base = 300 + Math.min(combo, 14) * 16;
+    const base = 260 + Math.min(combo, 14) * 12;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     const f = this.ctx.createBiquadFilter();
-    f.type = "bandpass"; f.frequency.value = 900; f.Q.value = 7;   // nasalisiert → entenartig
+    f.type = "lowpass"; f.frequency.value = 1800; f.Q.value = 6;    // warm + präsent statt dünn
     o.type = "sawtooth";
-    o.frequency.setValueAtTime(base * 1.7, t);
-    o.frequency.exponentialRampToValueAtTime(base, t + 0.11);       // charakteristisches „waaak" runter
+    o.frequency.setValueAtTime(base * 1.5, t);
+    o.frequency.linearRampToValueAtTime(base * 1.9, t + 0.05);      // "qu-" rauf
+    o.frequency.linearRampToValueAtTime(base * 0.8, t + 0.18);      // "-ack" runter
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.06, t + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    g.gain.exponentialRampToValueAtTime(0.14, t + 0.02);
+    g.gain.linearRampToValueAtTime(0.10, t + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
     o.connect(f); f.connect(g); g.connect(this.ctx.destination);
-    o.start(t); o.stop(t + 0.16);
+    o.start(t); o.stop(t + 0.22);
   }
   tankHit()   { this.blip(160, 0.08, "sawtooth", 0.05); }
   bossHit()   { this.blip(240, 0.1, "sawtooth", 0.06, 90); }

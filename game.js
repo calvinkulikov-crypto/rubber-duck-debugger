@@ -222,7 +222,12 @@ export class Game {
   // /ultrathink-Superpower (Enter bei vollem Meter): alle Nicht-Boss-Bugs auflösen +
   // kurze Slow-Mo zum Durchatmen. Boss bleibt verschont (muss „von Hand" getippt werden).
   useSkill() {
-    if (this.state !== STATE.PLAYING || !skillReady(this.skill, CONFIG.skill.max)) return false;
+    if (this.state !== STATE.PLAYING) return false;
+    if (!skillReady(this.skill, CONFIG.skill.max)) {
+      // Feedback: Enter ist gebunden, Meter aber noch nicht voll → kein stiller No-Op
+      this.texts.push(new FloatingText(this.W / 2, 100, `/ultrathink lädt… ${this.skill}/${CONFIG.skill.max}`, "#8b949e"));
+      return false;
+    }
     this.skill = 0;
     let n = 0;
     for (const b of this.bugs) {
