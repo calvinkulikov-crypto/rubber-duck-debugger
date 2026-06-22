@@ -1,22 +1,28 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 18:xx (Wow-Polish-Sprint: Spec+Plan+Premortem fertig, Bau startet nächste Session)
+**Letztes Update:** 2026-06-22 (Wow-Polish-Sprint: Task 1–7 gebaut+gepusht, Playtest-Gate offen)
 
 ## AKTIV — WOW-POLISH-SPRINT (Strategie A, Branch `wow-polish`)
 
 **Ziel:** Spiel optisch/akustisch/feel-mäßig auf „premium" + Wow-Momente, rein additiv. Pivot ist
 fertig + auf `main` gemerged + abgabefähig → `main` = Fallback, gebaut wird auf `wow-polish`.
 
-**Stand:** Brainstorming→Spec→Plan→Premortem **durch**, alles auf `origin/wow-polish` gepusht.
-- Spec: `docs/superpowers/specs/2026-06-22-wow-polish-sprint-design.md`
-- Plan: `docs/superpowers/plans/2026-06-22-wow-polish-sprint.md` (10 Tasks)
-- Premortem: `…-wow-polish-sprint-premortem.md` — Verdikt REVISE→**PROCEED** (FX-Lesbarkeit gepatcht)
-- Baseline grün: 19/19 mechanics-Tests, alle Files `node --check` ok.
+**Stand:** Task 1–7 (Muss) **gebaut, verifiziert, gepusht** auf `origin/wow-polish` (HEAD `92724f2`).
+Pro Task: Build → `node tests/smoke.mjs` + `node --test tests/mechanics.test.js` (22/22) +
+`node --check` aller Files grün → Commit → Push. Keine Plan-Abweichung nötig.
+- T1 Smoke-Harness (`tests/smoke.mjs`, Stub-ctx) · T2 Syntax-Highlighting (`tokenizeLine`, +3 Tests)
+- T3 Tipp-Juice/Hit-Stop/`Ring` · T4 CRT-Scanlines+Vignette (`CONFIG.fx`, `drawFX`)
+- T5 Audio (Key-Klick/Combo-Arpeggio) + klickbares Mute-Icon · T6 Flow-State Rand-Glow + „IN THE ZONE"
+- T7 Title-Glow + Game-Over als Build-Log + New-High-Score
+- Spec/Plan/Premortem: `docs/superpowers/{specs,plans}/2026-06-22-wow-polish-sprint*.md`
 
-**NÄCHSTER SCHRITT:** Plan ausführen (executing-plans, inline) Task 1→7 (Muss), dann Playtest-Gate,
-dann Merge→`main`+Deploy, dann Stretch 8–10 bei Restzeit. Push nach jedem Task auf `wow-polish`.
-Tasks (Wow pro Stunde): 1 Smoke-Harness · 2 Syntax-Farben · 3 Tipp-Juice/Hit-Stop/Ring ·
-4 CRT-Scanlines/Vignette · 5 Audio+Mute · 6 Flow-State (Signatur) · 7 Title/Game-Over-Reskin.
+**NÄCHSTER SCHRITT = PLAYTEST-GATE (Calvin, Browser):** `python3 -m http.server 8000` →
+http://localhost:8000, 3–4 Runden. Prüfen: Konsole error/404-frei; spielkritische Texte (Bug-
+`/command`-Labels + Terminal-Prompt) trotz Vignette/Scanlines/Flow-Glow lesbar — bes. an Rändern +
+bei grünem Flow; Highlighting dezent; Tippen taktil + Kill wuchtig (kein Stottern bei Kill-Salven);
+Audio nicht ermüdend, Mute klickbar in allen States; Framerate flüssig. Tuning nur in `CONFIG.fx`/
+`CONFIG`. **Erst nach bestandenem Playtest:** `git checkout main && git merge --no-ff wow-polish &&
+git push origin main`, dann `! npx vercel` (Calvin). Stretch 8–10 nur bei Restzeit.
 
 **Deadline: Di 2026-06-23 18:00.** Kippt der Sprint → `main` ist abgabefähig.
 
