@@ -142,7 +142,6 @@ export class Game {
       if (b.y > this.H + 30) { b.y = -30; b.x = 60 + Math.random() * (this.W - 120); }  // Loop
     }
     T.quackT -= dt;
-    if (T.quackT <= 0) { this.sound?.quack?.(0); T.quackT = 3.6; }        // gelegentliches Quaken
   }
 
   releaseTarget() {
