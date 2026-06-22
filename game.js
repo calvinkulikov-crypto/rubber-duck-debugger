@@ -25,7 +25,7 @@ export class Game {
         { who: "you",    text: "Warte – die Gummiente ist wirklich dabei?" },
         { who: "claude", text: "Wer debuggt schon ohne Gummiente? 🦆" },
       ],
-      li: 0, ci: 0, t: 0, cps: 38, holdAfter: 1.1, holdT: 0,
+      li: 0, ci: 0, t: 0, cps: 38, done: false,
     };
     // Title-Screen-Animation: Typewriter + bobbende Ente + Ambient-Bugs (lebendiger Startscreen)
     this.title = {
@@ -102,8 +102,7 @@ export class Game {
     } else if (it.li < it.lines.length - 1) {
       it.li += 1; it.ci = 0; it.t = 0;       // nächste Zeile
     } else {
-      it.holdT += dt;
-      if (it.holdT >= it.holdAfter) this.finishIntro();
+      it.done = true;     // fertig getippt → NICHT auto-weiter, auf Klick/Taste warten
     }
   }
   finishIntro() { this.enterTitle(); }
@@ -675,9 +674,16 @@ export class Game {
     if ((Math.floor(this.time * 2) % 2) === 0) {
       ctx.fillStyle = "#7ee787"; ctx.fillRect(caretX + 3, caretY - 15, 9, 18);
     }
-    ctx.fillStyle = "#6e7681"; ctx.font = "13px ui-monospace, monospace";
     ctx.textAlign = "center";
-    ctx.fillText("Enter / Klick = überspringen", this.W / 2, this.H - 40);
+    if (it.done) {        // fertig → deutlicher, blinkender Weiter-Hinweis (kein Auto-Advance)
+      ctx.font = "16px ui-monospace, monospace";
+      if ((Math.floor(this.time * 2) % 2) === 0) {
+        ctx.fillStyle = "#7ee787"; ctx.fillText("› Enter / Klick = weiter", this.W / 2, this.H - 40);
+      }
+    } else {
+      ctx.fillStyle = "#6e7681"; ctx.font = "13px ui-monospace, monospace";
+      ctx.fillText("Enter / Klick = überspringen", this.W / 2, this.H - 40);
+    }
   }
 
   // Karte (Box mit Header) für das aufgeräumte Title-Layout
