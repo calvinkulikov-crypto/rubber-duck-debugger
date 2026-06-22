@@ -1,6 +1,6 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 20:45 (Wow-Picks 1–3 gebaut+gepusht, Playtest-Gate offen)
+**Letztes Update:** 2026-06-22 21:40 (Wow-Picks 1–7 gebaut+gepusht, Playtest-Gate offen, HEAD `159cc12`)
 
 ## ⚠ BRANCH-KLARSTELLUNG (war im AUDIT verwirrend)
 `pivot-typing` ist bereits in `main` gemerged (`main` = Typing-Pivot). **`wow-polish` ist abgezweigt
@@ -13,11 +13,24 @@ von `main` → enthält BEIDES: Typing-Pivot + Politur = SUPERSET = Ship-Kandida
 3. **/ultrathink-Superpower** — Skill-Meter lädt pro Kill (`CONFIG.skill.max`=12), **Enter** löst
    Screen-Clear + Slow-Mo + lila Flash aus; Boss verschont. `skillCharge/skillReady` (+2 Tests),
    `useSkill()`, HUD-Ladebalken, `audio.ultrathink`, `main.js` Enter-Input.
+4. **Kill-Partikel = fallende Code-Zeichen** (`4c62e64`) — `CodeBit` (entities.js): Glyph aus
+   Syntax-Palette, hochgeschleudert→Gravitation, dreht, faded. Spawn in `onKill` (9 normal/22 Boss)
+   zusätzlich zum Spark-Burst. Bug zerfällt sichtbar in Quelltext.
+5. **Boss-Arena-Alarm** (`7b43abb`) — solang `bossActive()`: Arena dunkelt + roter Rand-Puls +
+   „⚠ INCIDENT"-Banner. `drawBossAlarm`, Overlay über Entities/unter HUD+Terminal (bleiben crisp).
+6. **Boss-Tension-Drone** (`dab0dea`) — tiefer Dauerton solang Boss lebt. `audio.start/stopDrone`
+   (55Hz-Säge + Quinte, Lowpass, 0.7Hz-Tremolo, idempotent); Game koppelt an `bossActive()`,
+   Stop bei Kill/Escape/Pause/GameOver, Mute stoppt sofort.
+7. **Intro-Cohesion** (`159cc12`) — Cursor folgt dem Tipp-Caret der aktiven „Hey Claude"-Zeile
+   (statt fix), `keyClick` pro Zeichen in `updateIntro`. NB: Intro-Klang vor erster Geste still
+   (Autoplay-Policy) — Cursor-Follow greift immer.
 
-**NÄCHSTER SCHRITT = CALVIN PLAYTEST:** `python3 -m http.server 8000` → Cmd+Shift+R. Quack nicht
-zu oft? Ghost dezent+lesbar? Enter=/ultrathink mächtig genug, Boss fair? Konsole error/404-frei.
-Tuning via `CONFIG.skill`/`audio.js`-Gains. **Danach weitere Picks** (Boss-Arena-Alarm, Intro-Cohesion,
-Code-Char-Partikel, Boss-Drone). Nach Playtest: `merge main` → Redeploy `! npx vercel` → Abgabe.
+**NÄCHSTER SCHRITT = CALVIN PLAYTEST (alle 7 Picks):** `python3 -m http.server 8000` → Cmd+Shift+R.
+Quack nicht zu oft? Ghost dezent+lesbar? Enter=/ultrathink mächtig, Boss fair? **Code-Regen beim Kill
+nicht zu busy?** **Boss-Alarm bedrohlich aber Boss/Command lesbar?** **Drone hörbar aber nicht
+nervig, stoppt sauber bei Kill/Pause/Mute?** Konsole error/404-frei. Tuning: Partikel-Count/`CodeBit`,
+`drawBossAlarm`-Alphas, `startDrone`-Gain/Freq. **Danach: Abgabe einleiten** — keine offenen Picks mehr.
+Nach Playtest: `merge main` → Redeploy `! npx vercel` → Abgabe (Repo+Live-Link in Thread). Deadline Di 18:00.
 
 ---
 
