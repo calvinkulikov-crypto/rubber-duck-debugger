@@ -1,8 +1,28 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 (Pivot FREIGEGEBEN — Plan-Bau startet; Intro-Idee in Scope)
+**Letztes Update:** 2026-06-22 18:xx (Wow-Polish-Sprint: Spec+Plan+Premortem fertig, Bau startet nächste Session)
 
-## AKTIVER PIVOT — „Claude-Code Debugger" (Command-Typing statt Shooter)
+## AKTIV — WOW-POLISH-SPRINT (Strategie A, Branch `wow-polish`)
+
+**Ziel:** Spiel optisch/akustisch/feel-mäßig auf „premium" + Wow-Momente, rein additiv. Pivot ist
+fertig + auf `main` gemerged + abgabefähig → `main` = Fallback, gebaut wird auf `wow-polish`.
+
+**Stand:** Brainstorming→Spec→Plan→Premortem **durch**, alles auf `origin/wow-polish` gepusht.
+- Spec: `docs/superpowers/specs/2026-06-22-wow-polish-sprint-design.md`
+- Plan: `docs/superpowers/plans/2026-06-22-wow-polish-sprint.md` (10 Tasks)
+- Premortem: `…-wow-polish-sprint-premortem.md` — Verdikt REVISE→**PROCEED** (FX-Lesbarkeit gepatcht)
+- Baseline grün: 19/19 mechanics-Tests, alle Files `node --check` ok.
+
+**NÄCHSTER SCHRITT:** Plan ausführen (executing-plans, inline) Task 1→7 (Muss), dann Playtest-Gate,
+dann Merge→`main`+Deploy, dann Stretch 8–10 bei Restzeit. Push nach jedem Task auf `wow-polish`.
+Tasks (Wow pro Stunde): 1 Smoke-Harness · 2 Syntax-Farben · 3 Tipp-Juice/Hit-Stop/Ring ·
+4 CRT-Scanlines/Vignette · 5 Audio+Mute · 6 Flow-State (Signatur) · 7 Title/Game-Over-Reskin.
+
+**Deadline: Di 2026-06-23 18:00.** Kippt der Sprint → `main` ist abgabefähig.
+
+---
+
+## ERLEDIGT — PIVOT „Claude-Code Debugger" (Command-Typing statt Shooter)
 
 **Warum:** Calvin: aktuelles Spiel = nur Shooter-Klon mit eigenem Design. Ziel = echtes
 Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen (per AskUserQuestion):
