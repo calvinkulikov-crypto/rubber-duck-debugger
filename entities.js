@@ -160,16 +160,20 @@ export class Bug {
     ctx.fillStyle = "#0d1117";
     ctx.beginPath(); ctx.arc(-this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
-    // Command-Label: getippter Teil grün, Rest grau
+    // Command-Label: getippter Teil grün, Rest grau — dunkles Pill als Hintergrund
     ctx.font = "12px ui-monospace, monospace";
     const cmd = this.command;
     const done = cmd.slice(0, this.typedLen);
-    const x0 = -ctx.measureText(cmd).width / 2;
+    const fullW = ctx.measureText(cmd).width;
+    const x0 = -fullW / 2;
+    const labelY = -this.r - 6;
+    ctx.fillStyle = "rgba(13,17,23,0.82)";
+    ctx.fillRect(x0 - 4, labelY - 13, fullW + 8, 17);
     ctx.textAlign = "left";
     ctx.fillStyle = "#7ee787";
-    ctx.fillText(done, x0, -this.r - 6);
+    ctx.fillText(done, x0, labelY);
     ctx.fillStyle = "#8b949e";
-    ctx.fillText(cmd.slice(this.typedLen), x0 + ctx.measureText(done).width, -this.r - 6);
+    ctx.fillText(cmd.slice(this.typedLen), x0 + ctx.measureText(done).width, labelY);
     ctx.restore();
   }
 }
