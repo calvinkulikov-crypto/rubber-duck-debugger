@@ -1,6 +1,35 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-20 (Checkpoint nach T12-Code, Handoff an Playtest/Deploy)
+**Letztes Update:** 2026-06-22 (Pivot-Brainstorming — Design vorgelegt, Freigabe offen)
+
+## AKTIVER PIVOT — „Claude-Code Debugger" (Command-Typing statt Shooter)
+
+**Warum:** Calvin: aktuelles Spiel = nur Shooter-Klon mit eigenem Design. Ziel = echtes
+Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen (per AskUserQuestion):
+1. Richtung = **„Erklären statt Schießen"** (Mechanik weg vom Shooter).
+2. Tipp-Inhalt = **„Claude-Code-Flavor, keine API"** (rein statisch, kein Backend, kein Kostenrisiko).
+
+**Design (vorgelegt, Freigabe vom User noch offen — HARD-GATE: kein Spec/Code vor Approval):**
+- *Mechanik:* Bugs sinken mit **Slash-Command als Label** (`/fix /test /revert /refactor` …). Spieler
+  **tippt den Command** → erster Buchstabe lockt nächsten passenden Bug (ZType-auto-lock), jeder
+  korrekte Buchstabe feuert Execute-Strahl, Command fertig = Bug platzt. Tippfehler = „syntax error"
+  (Combo bricht, roter Glitch). Keine Maus-Bewegung mehr, Ente zielt automatisch. **Terminal-Prompt**
+  unten zeigt Getipptes live (Claude-Code-Vibe, neues Optik-Element).
+- *Bleibt:* Duck/Bug/Boss/Beam/Particle/FloatingText, Wellen, Score/Combo/Leben/GameOver, IDE-BG,
+  Juice, Hi-DPI, alle mechanics.js-Tests.
+- *Raus:* Maus-Bewegung, Autofire, Klick-Feuern.
+- *Neu:* Tipp-Buffer + Lock-State + Targeting (game.js), Terminal-Render, Input-Remap (main.js:
+  Buchstaben→Buffer, Backspace=Korrektur, Esc=Pause), config-Labels → Commands, neue reine Funktion
+  `matchCommand()` in mechanics.js (unit-testbar → TDD bleibt grün).
+- *Content:* Command-Pool nach Tier — kurz/häufig `/fix /test /lint /retry`; Tank/lang
+  `/refactor /rollback /mutex /rebase`; Boss-„Incident" = Mehrwort-Sequenz `/triage`→`/rollback`→`/ship`
+  (teleportiert zwischen Commands).
+- *Lock-Default:* auto-lock-nächster passender Bug (anfängerfreundlich). Alt: frei-zielen/blind tippen.
+- *Scope:* additiver Branch, statisches T1–T12-Game bleibt Fallback. ~6–8 Tasks.
+
+**NÄCHSTER SCHRITT nach /clear:** User-Freigabe des Designs einholen → dann Spec nach
+`docs/superpowers/specs/` (brainstorming-Flow) → writing-plans → premortem (≥50 Zeilen) → executing-plans.
+**Deadline rückt: Di 18:00 = morgen.** Falls Pivot zeitlich kippt → statisches T12-Game ist abgabefähig.
 
 ## Stand
 - Setup ✓, Spec ✓, Plan (13 Tasks) ✓, Premortem (PROCEED) ✓.
