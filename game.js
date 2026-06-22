@@ -270,6 +270,27 @@ export class Game {
     }
   }
 
+  drawTerminal(ctx) {
+    const y = CONFIG.floorY + 30;
+    ctx.textAlign = "left";
+    ctx.font = "20px ui-monospace, monospace";
+    ctx.fillStyle = "#7ee787";
+    ctx.fillText("›", 18, y);
+    ctx.fillStyle = "#c9d1d9";
+    ctx.fillText(this.typed, 40, y);
+    // blinkender Cursor hinter dem Getippten
+    if ((Math.floor(this.time * 2) % 2) === 0) {
+      const w = ctx.measureText(this.typed).width;
+      ctx.fillStyle = "#7ee787";
+      ctx.fillRect(42 + w, y - 15, 9, 18);
+    }
+    if (!this.target) {
+      ctx.fillStyle = "#6e7681";
+      ctx.font = "13px ui-monospace, monospace";
+      ctx.fillText("tipp einen /command, um einen Bug zu fixen", 40, y + 22);
+    }
+  }
+
   drawHud(ctx) {
     ctx.fillStyle = "#c9d1d9";
     ctx.font = "16px ui-monospace, monospace";
@@ -295,6 +316,7 @@ export class Game {
     for (const p of this.particles) p.draw(ctx);
     for (const t of this.texts) t.draw(ctx);
     this.drawHud(ctx);
+    this.drawTerminal(ctx);
     if (this.banner > 0) {
       ctx.fillStyle = "#c9d1d9";
       ctx.font = "32px ui-monospace, monospace";
@@ -312,8 +334,8 @@ export class Game {
     ctx.fillStyle = "#c9d1d9"; ctx.font = "18px ui-monospace, monospace";
     ctx.fillText("Erklär dem Entchen deinen Bug.", this.W / 2, 230);
     ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
-    ctx.fillText("Maus / Pfeile = bewegen   •   Klick / Leertaste = Erklär-Strahl", this.W / 2, 300);
-    ctx.fillText("Schieß Bugs ab, bevor sie deinen Code korrumpieren.", this.W / 2, 326);
+    ctx.fillText("Tippe die /commands, die auf den Bugs stehen   •   Backspace = korrigieren", this.W / 2, 300);
+    ctx.fillText("Erstes Zeichen lockt den tiefsten Bug. Tippfehler bricht die Combo.", this.W / 2, 326);
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
     ctx.fillText("Klick zum Start", this.W / 2, 400);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
@@ -336,7 +358,7 @@ export class Game {
     ctx.fillText(`Best: ${this.best}`, this.W / 2, 322);
     ctx.fillText(`Welle: ${this.wave}`, this.W / 2, 354);
     ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
-    ctx.fillText("R / Klick = neu starten", this.W / 2, 420);
+    ctx.fillText("Enter / Klick = neu starten", this.W / 2, 420);
   }
 
   draw(ctx) {
