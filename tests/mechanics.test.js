@@ -4,6 +4,7 @@ import {
   clamp, comboMultiplier, scoreForKill,
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug,
+  matchCommand, pickTarget,
 } from "../mechanics.js";
 
 test("clamp begrenzt nach unten/oben", () => {
@@ -50,4 +51,31 @@ test("beamHitsBug: vertikales Segment vs Kreis", () => {
   assert.equal(beamHitsBug({ x: 400, y: 215, len: 26, width: 6 }, bug), true);   // direkt drunter, überlappt
   assert.equal(beamHitsBug({ x: 460, y: 215, len: 26, width: 6 }, bug), false);  // seitlich daneben
   assert.equal(beamHitsBug({ x: 400, y: 400, len: 26, width: 6 }, bug), false);  // zu weit weg vertikal
+});
+
+test("matchCommand: korrekter nächster Buchstabe schreitet voran", () => {
+  assert.deepEqual(matchCommand("/fix", "", "/"), { ok: true, buffer: "/", complete: false });
+  assert.deepEqual(matchCommand("/fix", "/fi", "x"), { ok: true, buffer: "/fix", complete: true });
+});
+
+test("matchCommand: falscher Buchstabe = Syntax-Error, Buffer unverändert", () => {
+  assert.deepEqual(matchCommand("/fix", "/f", "z"), { ok: false, buffer: "/f", complete: false });
+});
+
+test("pickTarget: tiefster (größtes y) Bug mit passendem ersten Zeichen", () => {
+  const bugs = [
+    { command: "/fix", y: 100, dead: false },
+    { command: "/test", y: 300, dead: false },
+    { command: "/fix", y: 250, dead: false },
+  ];
+  assert.equal(pickTarget(bugs, "/"), 1); // y=300 am tiefsten
+});
+
+test("pickTarget: kein passender Bug → -1", () => {
+  assert.equal(pickTarget([{ command: "/fix", y: 100, dead: false }], "x"), -1);
+});
+
+test("pickTarget: tote Bugs werden ignoriert", () => {
+  const bugs = [{ command: "/fix", y: 400, dead: true }, { command: "/fix", y: 100, dead: false }];
+  assert.equal(pickTarget(bugs, "/"), 1);
 });

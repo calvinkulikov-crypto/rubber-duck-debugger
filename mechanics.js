@@ -24,3 +24,21 @@ export const beamHitsBug = (beam, bug) => {
   const rad = bug.r + beam.width / 2;
   return dx * dx + dy * dy <= rad * rad;
 };
+
+// Tipp-Matching: schreitet im command voran, wenn char das nächste Zeichen ist.
+export const matchCommand = (command, buffer, char) => {
+  const next = buffer + char;
+  const ok = command.startsWith(next);
+  return { ok, buffer: ok ? next : buffer, complete: ok && next.length === command.length };
+};
+
+// Ziel-Wahl: Index des tiefsten (größtes y) lebenden Bugs, dessen command mit char beginnt; sonst -1.
+export const pickTarget = (bugs, char) => {
+  let best = -1, bestY = -Infinity;
+  for (let i = 0; i < bugs.length; i++) {
+    const b = bugs[i];
+    if (b.dead || !b.command) continue;
+    if (b.command[0] === char && b.y > bestY) { bestY = b.y; best = i; }
+  }
+  return best;
+};
