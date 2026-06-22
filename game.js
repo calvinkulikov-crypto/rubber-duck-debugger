@@ -288,6 +288,11 @@ export class Game {
     if (bug.isBoss) this.sound?.bossHit(); else this.sound?.quack(this.combo);
     if (bug.special) this.applySpecial(bug.effect, bug);
     if (this.combo % CONFIG.skill.comboTrigger === 0) this.useSkill();
+    if (this.combo === 25 && this.lives < CONFIG.lives) {
+      this.lives += 1;
+      this.texts.push(new FloatingText(this.W / 2, this.H / 2 - 40, "+♥ Leben zurück!", "#ff7b72"));
+      this.sound?.comboUp(3);
+    }
   }
 
   // /ultrathink-Superpower (auto bei comboTrigger): alle Nicht-Boss-Bugs auflösen +
