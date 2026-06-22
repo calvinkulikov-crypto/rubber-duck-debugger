@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { Duck, Beam, Bug, Boss, Particle, FloatingText } from "./entities.js";
+import { Duck, Beam, Bug, Boss, Particle, FloatingText, Ring } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
@@ -55,6 +55,9 @@ export class Game {
       "const debugDuck = new Duck();", "debugDuck.quack();", "// TODO: more tests",
     ];
     this.corrupted = [];     // Indizes korrumpierter Zeilen
+    this.rings = [];
+    this.hitstop = 0;       // > 0 = kurzer Impact-Freeze des Spielfelds
+    this.typedPunch = 0;    // > 0 = Terminal-Text-Bounce nach Tastendruck
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -128,6 +131,9 @@ export class Game {
     this.target = newTarget;
     this.typed = candidate;
     this.target.typedLen = this.typed.length;
+    this.target.flash = 0.08;                              // Ziel blitzt kurz weiß
+    this.shake = Math.max(this.shake, 0.05);               // Mini-Screen-Kick
+    this.typedPunch = 0.12;                                // Terminal-Bounce
     // pro korrektem Zeichen ein Execute-Strahl von der Ente zum Ziel
     const m = this.duck.muzzle();
     this.beams.push(new Beam(m.x, m.y, this.target.x, this.target.y));
@@ -191,6 +197,8 @@ export class Game {
 
   onKill(bug) {
     this.combo += 1;
+    this.hitstop = 0.05;
+    this.rings.push(new Ring(bug.x, bug.y, bug.color));
     this.comboTimer = CONFIG.combo.timeout;
     this.score += scoreForKill(bug.points, this.multiplier());
     const burst = bug.isBoss ? 28 : 10;
@@ -253,6 +261,8 @@ export class Game {
     if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
     if (this.state !== STATE.PLAYING) return;
     this.time += dt;
+    if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }
+    if (this.typedPunch > 0) this.typedPunch = Math.max(0, this.typedPunch - dt);
     if (this.wave === 0) this.startWave();          // erste Welle starten
 
     if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt);
@@ -296,6 +306,8 @@ export class Game {
     for (const t of this.texts) t.update(dt);
     this.particles = this.particles.filter((p) => !p.dead);
     this.texts = this.texts.filter((t) => !t.dead);
+    for (const r of this.rings) r.update(dt);
+    this.rings = this.rings.filter((r) => !r.dead);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);
 
     // Welle vorbei? → nächste
@@ -387,7 +399,8 @@ export class Game {
     ctx.fillStyle = "#7ee787";
     ctx.fillText("›", 18, y);
     ctx.fillStyle = "#c9d1d9";
-    ctx.fillText(this.typed, 40, y);
+    const dy = this.typedPunch > 0 ? -Math.sin((1 - this.typedPunch / 0.12) * Math.PI) * 3 : 0;
+    ctx.fillText(this.typed, 40, y + dy);
     // blinkender Cursor hinter dem Getippten
     if ((Math.floor(this.time * 2) % 2) === 0) {
       const w = ctx.measureText(this.typed).width;
@@ -431,6 +444,7 @@ export class Game {
     for (const b of this.beams) b.draw(ctx);
     this.duck.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
+    for (const r of this.rings) r.draw(ctx);
     for (const t of this.texts) t.draw(ctx);
     this.drawHud(ctx);
     this.drawTerminal(ctx);

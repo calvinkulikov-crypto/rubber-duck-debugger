@@ -256,6 +256,25 @@ export class Particle {
   }
 }
 
+export class Ring {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.color = color;
+    this.life = 0.4; this.max = 0.4; this.dead = false;
+  }
+  update(dt) { this.life -= dt; if (this.life <= 0) this.dead = true; }
+  draw(ctx) {
+    const p = 1 - this.life / this.max;                 // 0 → 1 expandierend
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life / this.max) * 0.7;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 6 + p * 42, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 export class FloatingText {
   constructor(x, y, text, color) {
     this.x = x; this.y = y; this.text = text; this.color = color;
