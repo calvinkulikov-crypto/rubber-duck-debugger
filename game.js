@@ -202,6 +202,9 @@ export class Game {
 
   multiplier() { return comboMultiplier(this.combo, CONFIG.combo.perTier, CONFIG.combo.multCap); }
 
+  // lebt gerade ein Boss auf dem Feld? → Arena-Alarm + Tension-Drone
+  bossActive() { return this.bugs.some((b) => b.isBoss && !b.dead && !b.escaped); }
+
   onKill(bug) {
     this.combo += 1;
     this.hitstop = 0.05;
@@ -497,6 +500,26 @@ export class Game {
     }
   }
 
+  // Boss-Arena-Alarm: solang ein Boss lebt, dunkelt die Arena ab und ein roter Rand-Puls
+  // signalisiert „Incident". Screen-space-Overlay über den Entities, unter HUD/Terminal
+  // (die bleiben crisp). Mitte bleibt klar → Boss + getippter Command lesbar.
+  drawBossAlarm(ctx) {
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 5.5);
+    ctx.fillStyle = `rgba(60,0,0,${0.10 + 0.07 * pulse})`;            // Arena leicht abdunkeln
+    ctx.fillRect(0, 0, this.W, this.H);
+    const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.30, this.W / 2, this.H / 2, this.H * 0.74);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(248,81,73,${0.26 + 0.22 * pulse})`);     // roter Rand-Glow, pulsierend
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.W, this.H);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "bold 15px ui-monospace, monospace";
+    ctx.fillStyle = `rgba(248,81,73,${0.55 + 0.45 * pulse})`;
+    ctx.fillText("⚠  INCIDENT  ⚠", this.W / 2, 96);
+    ctx.restore();
+  }
+
   drawHud(ctx) {
     ctx.fillStyle = "#c9d1d9";
     ctx.font = "16px ui-monospace, monospace";
@@ -547,6 +570,7 @@ export class Game {
     for (const c of this.codeBits) c.draw(ctx);
     for (const r of this.rings) r.draw(ctx);
     for (const t of this.texts) t.draw(ctx);
+    if (this.bossActive()) this.drawBossAlarm(ctx);
     this.drawHud(ctx);
     this.drawTerminal(ctx);
     if (this.banner > 0) {
