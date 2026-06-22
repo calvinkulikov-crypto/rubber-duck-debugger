@@ -691,6 +691,16 @@ export class Game {
     ctx.fillStyle = "#21262d"; ctx.fillRect(bx, by, bw, bh);
     ctx.fillStyle = "#3f4651";
     ctx.fillRect(bx, by, bw * (prog / trig), bh);
+    // ♥ Leben-Wiederherstellung — nur anzeigen wenn Leben fehlen
+    if (this.lives < CONFIG.lives) {
+      const lifeProg = Math.min(this.combo, 25);
+      const by2 = by + bh + 16;
+      ctx.fillStyle = "#6e7681";
+      ctx.fillText(`♥ +Leben  ${lifeProg}/25`, bx, by2 - 5);
+      ctx.fillStyle = "#21262d"; ctx.fillRect(bx, by2, bw, bh);
+      ctx.fillStyle = "#ff7b72";
+      ctx.fillRect(bx, by2, bw * (lifeProg / 25), bh);
+    }
   }
 
   drawPlayfield(ctx) {
@@ -830,12 +840,14 @@ export class Game {
         ctx.fillStyle = specs[i][1]; ctx.fillText(specs[i][0], rx + 16, yy);
         ctx.fillStyle = "#8b949e"; ctx.fillText(specs[i][2], rx + 120, yy);
       }
-      // ⚡ Superpower (eine ruhige Zeile)
+      // ⚡ Superpower + ♥ Leben-Bonus (zwei ruhige Info-Zeilen)
       ctx.textAlign = "center"; ctx.font = "13px ui-monospace, monospace"; ctx.fillStyle = "#d2a8ff";
       ctx.fillText("⚡ ×15 Combo → /ultrathink → Auto-Clear + Slow-Mo", cx, top + bh + 30);
+      ctx.fillStyle = "#ff7b72";
+      ctx.fillText("♥ ×25 Combo → +1 Leben zurück (max 3)", cx, top + bh + 48);
 
       // --- Start-Button mit blinkendem Terminal-Cursor ---
-      const btnW = 230, btnH = 42, bx = cx - btnW / 2, by = 380;
+      const btnW = 230, btnH = 42, bx = cx - btnW / 2, by = 400;
       ctx.save();
       ctx.fillStyle = "rgba(126,231,135,0.10)"; ctx.strokeStyle = "#7ee787"; ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -854,16 +866,16 @@ export class Game {
       const lb = this.loadLeaderboard();
       if (lb.length > 0) {
         ctx.textAlign = "center"; ctx.font = "11px ui-monospace, monospace"; ctx.fillStyle = "#484f58";
-        ctx.fillText("TOP SCORES", cx, 436);
+        ctx.fillText("TOP SCORES", cx, 456);
         for (let i = 0; i < Math.min(lb.length, 3); i++) {
           ctx.fillStyle = i === 0 ? "#ffd23f" : "#8b949e";
-          ctx.fillText(`#${i + 1}  ${lb[i].score}  ·  Wave ${lb[i].wave}`, cx, 451 + i * 15);
+          ctx.fillText(`#${i + 1}  ${lb[i].score}  ·  Wave ${lb[i].wave}`, cx, 471 + i * 15);
         }
       }
 
       if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
         ctx.textAlign = "center"; ctx.fillStyle = "#e5c07b"; ctx.font = "13px ui-monospace, monospace";
-        ctx.fillText("Am besten am Desktop mit Maus/Tastatur.", cx, 470);
+        ctx.fillText("Am besten am Desktop mit Maus/Tastatur.", cx, 490);
       }
     }
 
