@@ -530,6 +530,18 @@ export class Game {
     ctx.fillText("Enter / Klick = neu starten", this.W / 2, 420);
   }
 
+  // Post-Process über ALLE States: radiale Vignette + CRT-Scanlines. Screen-space.
+  drawFX(ctx) {
+    const fx = CONFIG.fx;
+    const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.32, this.W / 2, this.H / 2, this.H * 0.72);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.W, this.H);
+    ctx.fillStyle = `rgba(0,0,0,${fx.scanlineAlpha})`;
+    for (let y = 0; y < this.H; y += fx.scanlineGap) ctx.fillRect(0, y, this.W, 1);
+  }
+
   draw(ctx) {
     ctx.fillStyle = "#0d1117";
     ctx.fillRect(0, 0, this.W, this.H);    // BG vor Shake → keine Rand-Lücken beim Jitter
@@ -556,5 +568,6 @@ export class Game {
       this.drawGameOver(ctx);
     }
     ctx.restore();
+    this.drawFX(ctx);     // Post-Process zuletzt, screen-space (kein Shake-Jitter)
   }
 }

@@ -28,4 +28,5 @@ export const CONFIG = {
   slowmoTime: 3.0, slowmoScale: 0.4, bonusScore: 1500,
   boss: { r: 48, vy: 26, hp: 12, points: 2000, color: "#56b6c2",
     label: "Context Overflow", commands: ["/compact", "/clear", "/resume"] },
+  fx: { scanlineAlpha: 0.06, scanlineGap: 3, vignette: 0.34, flowThreshold: 4 },
 };
