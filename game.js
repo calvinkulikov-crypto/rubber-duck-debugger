@@ -60,6 +60,7 @@ export class Game {
     this.typedPunch = 0;    // > 0 = Terminal-Text-Bounce nach Tastendruck
     this.muted = this.sound ? this.sound.muted : false;
     this._mult = 1;         // letzter Multiplikator → Combo-Arpeggio/Flow-Trigger
+    this.leaked = 0; this.newBest = false;
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -239,6 +240,7 @@ export class Game {
 
   onEscape(bug) {
     this.lives -= 1;
+    this.leaked += 1;
     this.combo = 0;
     this.shake = 0.4;
     this.sound?.damage();
@@ -252,9 +254,10 @@ export class Game {
 
   gameOver() {
     this.state = STATE.GAMEOVER;
-    if (this.score > this.best) this.best = this.score;
-    this.saveBest();
+    this.newBest = this.score > this.best;
+    if (this.newBest) { this.best = this.score; this.saveBest(); }
     this.sound?.gameOver();
+    if (this.newBest) this.sound?.waveClear();   // Belohnungs-Chime für neue Bestmarke
   }
 
   loadBest() { try { return parseInt(localStorage.getItem("rdd_best") || "0", 10) || 0; } catch { return 0; } }
@@ -517,8 +520,14 @@ export class Game {
     this.drawBackground(ctx);
     ctx.fillStyle = "rgba(13,17,23,0.78)"; ctx.fillRect(0, 0, this.W, this.H);
     ctx.textAlign = "center";
-    ctx.fillStyle = "#ffd23f"; ctx.font = "44px ui-monospace, monospace";
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 3);
+    ctx.save();
+    ctx.fillStyle = "#ffd23f";
+    ctx.font = "44px ui-monospace, monospace";
+    ctx.shadowColor = "#ffd23f";
+    ctx.shadowBlur = 12 + pulse * 18;                       // pulsierender Glow
     ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 190);
+    ctx.restore();
     ctx.fillStyle = "#c9d1d9"; ctx.font = "18px ui-monospace, monospace";
     ctx.fillText("Tippe die Claude-Code-/commands, die auf den Bugs stehen.", this.W / 2, 230);
     ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
@@ -534,7 +543,7 @@ export class Game {
     ctx.fillStyle = "#8b949e"; ctx.fillText("= Bonus-Score", this.W / 2 - 60, 392);
     ctx.textAlign = "center";
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
-    ctx.fillText("Klick zum Start", this.W / 2, 430);
+    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("▶ Klick zum Start", this.W / 2, 430);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
     ctx.fillText(`Best: ${this.best}`, this.W / 2, 462);
     // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
@@ -546,16 +555,35 @@ export class Game {
 
   drawGameOver(ctx) {
     this.drawBackground(ctx);
-    ctx.fillStyle = "rgba(13,17,23,0.82)"; ctx.fillRect(0, 0, this.W, this.H);
+    ctx.fillStyle = "rgba(13,17,23,0.85)"; ctx.fillRect(0, 0, this.W, this.H);
     ctx.textAlign = "center";
     ctx.fillStyle = "#f85149"; ctx.font = "46px ui-monospace, monospace";
-    ctx.fillText("BUILD BROKEN", this.W / 2, 230);
-    ctx.fillStyle = "#c9d1d9"; ctx.font = "22px ui-monospace, monospace";
-    ctx.fillText(`Score: ${this.score}`, this.W / 2, 290);
-    ctx.fillText(`Best: ${this.best}`, this.W / 2, 322);
-    ctx.fillText(`Welle: ${this.wave}`, this.W / 2, 354);
-    ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
-    ctx.fillText("Enter / Klick = neu starten", this.W / 2, 420);
+    ctx.save(); ctx.shadowColor = "#f85149"; ctx.shadowBlur = 16;
+    ctx.fillText("✗ BUILD BROKEN", this.W / 2, 200); ctx.restore();
+    // Build-Log
+    ctx.textAlign = "left"; ctx.font = "18px ui-monospace, monospace";
+    const cx = this.W / 2 - 150; let ly = 260;
+    const log = [
+      ["$ ", "#7ee787", "npm run debug", "#c9d1d9"],
+      ["  bugs leaked: ", "#8b949e", String(this.leaked), "#f85149"],
+      ["  waves cleared: ", "#8b949e", String(this.wave), "#c9d1d9"],
+      ["  score: ", "#8b949e", String(this.score), "#ffd23f"],
+      ["  best: ", "#8b949e", String(this.best), "#c9d1d9"],
+      ["✗ ", "#f85149", "exit code 1", "#8b949e"],
+    ];
+    for (const [a, ca, b, cb] of log) {
+      ctx.fillStyle = ca; ctx.fillText(a, cx, ly);
+      ctx.fillStyle = cb; ctx.fillText(b, cx + ctx.measureText(a).width, ly);
+      ly += 28;
+    }
+    if (this.newBest) {
+      ctx.textAlign = "center"; ctx.fillStyle = "#ffd23f"; ctx.font = "22px ui-monospace, monospace";
+      ctx.save(); ctx.shadowColor = "#ffd23f"; ctx.shadowBlur = 12;
+      ctx.fillText("★ NEW HIGH SCORE ★", this.W / 2, ly + 16); ctx.restore();
+      ly += 28;
+    }
+    ctx.textAlign = "center"; ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
+    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("› Enter / Klick = neu starten", this.W / 2, ly + 40);
   }
 
   // Flow-State: ab Schwelle grüner Rand-Glow, Intensität ∝ Multiplikator, im Takt pulsierend.
