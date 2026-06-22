@@ -54,13 +54,25 @@ function setupHiDPI() {
 }
 setupHiDPI();
 
+function showError(e) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#f85149"; ctx.font = "bold 14px monospace";
+  ctx.fillText("JS ERROR:", 20, 30);
+  ctx.fillStyle = "#c9d1d9"; ctx.font = "12px monospace";
+  String(e?.stack || e).split("\n").forEach((t, i) => ctx.fillText(t.slice(0, 90), 20, 56 + i * 18));
+}
+window.addEventListener("error", (ev) => showError(ev.error || ev.message));
+
 let last = performance.now();
 function frame(now) {
   let dt = (now - last) / 1000;
   last = now;
   if (dt > 1 / 30) dt = 1 / 30;
-  game.update(dt);
-  game.draw(ctx);
+  try {
+    game.update(dt);
+    game.draw(ctx);
+  } catch (e) { showError(e); return; }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
