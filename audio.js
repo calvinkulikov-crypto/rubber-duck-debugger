@@ -1,6 +1,6 @@
 // Synthetisierte Effekte. Kein Asset, kein 404. Bei fehlendem WebAudio: still.
 export class Sound {
-  constructor() { this.ctx = null; this.ok = false; }
+  constructor() { this.ctx = null; this.ok = false; this.muted = false; }
   init() {
     if (this.ctx) return;
     try {
@@ -10,7 +10,7 @@ export class Sound {
   }
   resume() { if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); }
   blip(freq, dur, type = "square", gain = 0.06, slideTo = null) {
-    if (!this.ok) return;
+    if (!this.ok || this.muted) return;
     const t = this.ctx.currentTime;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
@@ -20,6 +20,12 @@ export class Sound {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(this.ctx.destination);
     o.start(t); o.stop(t + dur);
+  }
+  setMuted(m) { this.muted = m; }
+  keyClick(combo) { this.blip(300 + Math.min(combo, 14) * 36, 0.035, "square", 0.025); }
+  comboUp(tier) {
+    const base = 480 + tier * 55;
+    for (let i = 0; i < 3; i++) this.blip(base * (1 + i * 0.26), 0.09, "sine", 0.035);
   }
   fire()      { this.blip(680, 0.08, "square", 0.04, 880); }
   pop()       { this.blip(420, 0.12, "triangle", 0.07, 120); }

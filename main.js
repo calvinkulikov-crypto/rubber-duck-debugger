@@ -12,8 +12,18 @@ function unlockAudio() { sound.init(); sound.resume(); }
 window.addEventListener("mousedown", unlockAudio, { once: true });
 window.addEventListener("keydown", unlockAudio, { once: true });
 
-canvas.addEventListener("mousedown", () => {
-  if (game.state !== STATE.PLAYING) game.confirm();   // Klick = Start/Skip/Restart, NICHT feuern
+function eventToCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: ((e.clientX - r.left) / r.width) * CONFIG.canvas.w,
+    y: ((e.clientY - r.top) / r.height) * CONFIG.canvas.h,
+  };
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  const p = eventToCanvas(e);
+  if (game.hitMute(p.x, p.y)) { game.toggleMute(); return; }   // Mute zuerst, in jedem State
+  if (game.state !== STATE.PLAYING) game.confirm();            // sonst Start/Skip/Restart
 });
 
 window.addEventListener("keydown", (e) => {

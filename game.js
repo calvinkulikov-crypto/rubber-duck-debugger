@@ -58,6 +58,8 @@ export class Game {
     this.rings = [];
     this.hitstop = 0;       // > 0 = kurzer Impact-Freeze des Spielfelds
     this.typedPunch = 0;    // > 0 = Terminal-Text-Bounce nach Tastendruck
+    this.muted = this.sound ? this.sound.muted : false;
+    this._mult = 1;         // letzter Multiplikator → Combo-Arpeggio/Flow-Trigger
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -140,6 +142,7 @@ export class Game {
     this.duck.triggerRecoil();
     this.fireCd = CONFIG.beam.cooldown;
     this.sound?.fire();
+    this.sound?.keyClick(this.combo);
     if (candidate === this.target.command) this.executeTarget();
   }
 
@@ -257,6 +260,22 @@ export class Game {
   loadBest() { try { return parseInt(localStorage.getItem("rdd_best") || "0", 10) || 0; } catch { return 0; } }
   saveBest() { try { localStorage.setItem("rdd_best", String(this.best)); } catch { /* privater modus: nur in-memory */ } }
 
+  toggleMute() { this.muted = !this.muted; this.sound?.setMuted(this.muted); }
+  muteIconRect() { return { x: this.W - 46, y: this.H - 30, w: 36, h: 26 }; }
+  hitMute(px, py) {
+    const r = this.muteIconRect();
+    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+  }
+  drawMute(ctx) {
+    const r = this.muteIconRect();
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "20px ui-monospace, monospace";
+    ctx.fillStyle = "#8b949e";
+    ctx.fillText(this.muted ? "🔇" : "🔊", r.x + r.w / 2, r.y + r.h - 6);
+    ctx.restore();
+  }
+
   update(dt) {
     if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
     if (this.state !== STATE.PLAYING) return;
@@ -300,6 +319,10 @@ export class Game {
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) this.combo = 0;
     }
+
+    const mult = this.multiplier();
+    if (mult > this._mult) this.sound?.comboUp(mult);
+    this._mult = mult;
 
     // Juice: Partikel/Texte tickern, Screen-Shake abklingen
     for (const p of this.particles) p.update(dt);
@@ -569,5 +592,6 @@ export class Game {
     }
     ctx.restore();
     this.drawFX(ctx);     // Post-Process zuletzt, screen-space (kein Shake-Jitter)
+    this.drawMute(ctx);   // immer sichtbar/klickbar, über dem Post-Process
   }
 }
