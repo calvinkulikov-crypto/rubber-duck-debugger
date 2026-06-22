@@ -211,7 +211,8 @@ export class Game {
     const mult = this.multiplier();
     if (mult > 1) this.texts.push(new FloatingText(bug.x, bug.y - 18, `×${mult}`, "#7ee787"));
     if (bug.isBoss) this.shake = Math.max(this.shake, 0.3);
-    this.sound?.[bug.isBoss ? "bossHit" : "pop"]();
+    // Ente quakt beim Bug-Kill (Tonhöhe ∝ Combo); Boss bleibt beim wuchtigen bossHit
+    if (bug.isBoss) this.sound?.bossHit(); else this.sound?.quack(this.combo);
     if (bug.special) this.applySpecial(bug.effect, bug);
   }
 
