@@ -5,7 +5,7 @@ import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug,
   matchCommand, pickTarget, pickTargetByBuffer,
-  tokenizeLine,
+  tokenizeLine, skillCharge, skillReady,
 } from "../mechanics.js";
 import { Bug } from "../entities.js";
 import { CONFIG } from "../config.js";
@@ -26,6 +26,19 @@ test("comboMultiplier steigt pro Tier, gedeckelt", () => {
 
 test("scoreForKill = base * multiplier", () => {
   assert.equal(scoreForKill(100, 3), 300);
+});
+
+test("skillCharge lädt bis max, kein Überlauf", () => {
+  assert.equal(skillCharge(0, 1, 10), 1);
+  assert.equal(skillCharge(9, 1, 10), 10);
+  assert.equal(skillCharge(10, 1, 10), 10);   // cap
+  assert.equal(skillCharge(8, 5, 10), 10);    // großer add deckelt
+});
+
+test("skillReady erst ab voll", () => {
+  assert.equal(skillReady(9, 10), false);
+  assert.equal(skillReady(10, 10), true);
+  assert.equal(skillReady(11, 10), true);
 });
 
 test("waveBudget = base + wave*per (1-indexiert)", () => {

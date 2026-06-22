@@ -26,6 +26,8 @@ export const CONFIG = {
     { command: "/cost",    effect: "bonus",  r: 16, vy: 52, points: 400, color: "#ffd23f" },
   ],
   slowmoTime: 3.0, slowmoScale: 0.4, bonusScore: 1500,
+  // Skill-Meter „/ultrathink": lädt pro Kill, bei voll → Enter feuert (Screen-Clear + Slow-Mo).
+  skill: { max: 12, gainPerKill: 1, slowmo: 2.0 },
   boss: { r: 48, vy: 26, hp: 12, points: 2000, color: "#56b6c2",
     label: "Context Overflow", commands: ["/compact", "/clear", "/resume"] },
   fx: { scanlineAlpha: 0.06, scanlineGap: 3, vignette: 0.34, flowThreshold: 4 },

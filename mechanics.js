@@ -6,6 +6,10 @@ export const comboMultiplier = (combo, perTier, cap) =>
 
 export const scoreForKill = (basePoints, multiplier) => basePoints * multiplier;
 
+// Skill-Meter „/ultrathink": lädt pro Kill, deckelt bei max; ready ab voll.
+export const skillCharge = (cur, add, max) => Math.min(max, cur + add);
+export const skillReady = (charge, max) => charge >= max;
+
 export const waveBudget = (wave, base, per) => base + wave * per;
 
 export const waveSpeedMultiplier = (wave, speedMult) => Math.pow(speedMult, wave - 1);

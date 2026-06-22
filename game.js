@@ -3,7 +3,7 @@ import { Duck, Beam, Bug, Boss, Particle, FloatingText, Ring } from "./entities.
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
-  pickTargetByBuffer, tokenizeLine,
+  pickTargetByBuffer, tokenizeLine, skillCharge, skillReady,
 } from "./mechanics.js";
 
 export const STATE = { INTRO: "INTRO", TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
@@ -61,6 +61,8 @@ export class Game {
     this.muted = this.sound ? this.sound.muted : false;
     this._mult = 1;         // letzter Multiplikator → Combo-Arpeggio/Flow-Trigger
     this.leaked = 0; this.newBest = false;
+    this.skill = 0;         // Skill-Meter „/ultrathink": lädt pro Kill, Enter feuert bei voll
+    this.skillFlash = 0;    // > 0 = kurzer lila Ganzfeld-Flash nach /ultrathink
   }
 
   start() { this.reset(); this.state = STATE.PLAYING; }
@@ -213,7 +215,32 @@ export class Game {
     if (bug.isBoss) this.shake = Math.max(this.shake, 0.3);
     // Ente quakt beim Bug-Kill (Tonhöhe ∝ Combo); Boss bleibt beim wuchtigen bossHit
     if (bug.isBoss) this.sound?.bossHit(); else this.sound?.quack(this.combo);
+    this.skill = skillCharge(this.skill, CONFIG.skill.gainPerKill, CONFIG.skill.max);
     if (bug.special) this.applySpecial(bug.effect, bug);
+  }
+
+  // /ultrathink-Superpower (Enter bei vollem Meter): alle Nicht-Boss-Bugs auflösen +
+  // kurze Slow-Mo zum Durchatmen. Boss bleibt verschont (muss „von Hand" getippt werden).
+  useSkill() {
+    if (this.state !== STATE.PLAYING || !skillReady(this.skill, CONFIG.skill.max)) return false;
+    this.skill = 0;
+    let n = 0;
+    for (const b of this.bugs) {
+      if (b.dead || b.escaped || b.isBoss) continue;
+      b.dead = true; n += 1;
+      this.score += scoreForKill(b.points, this.multiplier());
+      this.rings.push(new Ring(b.x, b.y, b.color));
+      for (let i = 0; i < 8; i++) this.particles.push(new Particle(b.x, b.y, b.color));
+    }
+    if (this.target && this.target.dead) this.releaseTarget();
+    this.slowmo = Math.max(this.slowmo, CONFIG.skill.slowmo);
+    this.shake = Math.max(this.shake, 0.45);
+    this.hitstop = 0.12;
+    this.skillFlash = 0.3;
+    this.texts.push(new FloatingText(this.W / 2, this.H / 2 - 20, "⚡ /ultrathink", "#d2a8ff"));
+    this.texts.push(new FloatingText(this.W / 2, this.H / 2 + 14, `${n} bugs resolved`, "#7ee787"));
+    this.sound?.ultrathink?.();
+    return true;
   }
 
   // Spezial-Bug-Effekte: Claude-Code-Commands mit Spielfeld-Wirkung.
@@ -286,6 +313,7 @@ export class Game {
     this.time += dt;
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }
     if (this.typedPunch > 0) this.typedPunch = Math.max(0, this.typedPunch - dt);
+    if (this.skillFlash > 0) this.skillFlash = Math.max(0, this.skillFlash - dt);
     if (this.wave === 0) this.startWave();          // erste Welle starten
 
     if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt);
@@ -473,6 +501,23 @@ export class Game {
       ctx.font = "14px ui-monospace, monospace";
       ctx.fillText("◴ compacting…", 16, 50);
     }
+    // Skill-Meter „/ultrathink": Ladebalken; bei voll pulsierender Enter-Prompt
+    const sm = CONFIG.skill;
+    const ready = skillReady(this.skill, sm.max);
+    const bx = 16, by = 74, bw = 132, bh = 7;
+    ctx.textAlign = "left";
+    ctx.font = "11px ui-monospace, monospace";
+    if (ready) {
+      const pulse = 0.55 + 0.45 * Math.sin(this.time * 9);
+      ctx.fillStyle = `rgba(210,168,255,${0.5 + 0.5 * pulse})`;
+      ctx.fillText("⏎ /ultrathink  READY", bx, by - 5);
+    } else {
+      ctx.fillStyle = "#6e7681";
+      ctx.fillText("/ultrathink", bx, by - 5);
+    }
+    ctx.fillStyle = "#21262d"; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = ready ? "#d2a8ff" : "#3f4651";
+    ctx.fillRect(bx, by, bw * (this.skill / sm.max), bh);
   }
 
   drawPlayfield(ctx) {
@@ -617,6 +662,11 @@ export class Game {
     ctx.fillRect(0, 0, this.W, this.H);
     ctx.fillStyle = `rgba(0,0,0,${fx.scanlineAlpha})`;
     for (let y = 0; y < this.H; y += fx.scanlineGap) ctx.fillRect(0, y, this.W, 1);
+    // /ultrathink-Flash: kurzer lila Ganzfeld-Wash beim Auslösen der Superpower
+    if (this.skillFlash > 0) {
+      ctx.fillStyle = `rgba(210,168,255,${this.skillFlash * 0.5})`;
+      ctx.fillRect(0, 0, this.W, this.H);
+    }
   }
 
   draw(ctx) {

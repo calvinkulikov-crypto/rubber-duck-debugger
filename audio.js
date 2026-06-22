@@ -52,5 +52,11 @@ export class Sound {
   bossHit()   { this.blip(240, 0.1, "sawtooth", 0.06, 90); }
   damage()    { this.blip(90, 0.3, "sawtooth", 0.09, 50); }
   waveClear() { this.blip(523, 0.1, "sine", 0.05, 784); }
+  // /ultrathink-Superpower: aufsteigender Glitzer-Akkord → „Power entfesselt"
+  ultrathink() {
+    if (!this.ok || this.muted) return;
+    const steps = [523, 659, 784, 1047, 1319];   // C-Dur-Arpeggio aufwärts
+    for (let i = 0; i < steps.length; i++) this.blip(steps[i], 0.22, "sine", 0.05, steps[i] * 1.5);
+  }
   gameOver()  { this.blip(330, 0.6, "sine", 0.08, 70); }
 }
