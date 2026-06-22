@@ -418,17 +418,18 @@ export class Game {
   }
 
   update(dt) {
-    if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
+    if (this.state === STATE.INTRO) { this.time += dt; this.sound?.startMenuMusic?.(); this.sound?.stopMusic?.(); this.updateIntro(dt); return; }
     if (this.state === STATE.GAMEOVER) {
       this.time += dt;                                                  // Cursor-Blink im Build-Log
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.2); // kurz wackeln → still
       if (this.shareCopied > 0) this.shareCopied = Math.max(0, this.shareCopied - dt);
-      this.sound?.stopDrone?.(); this.sound?.stopMusic?.();
+      this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); this.sound?.stopMenuMusic?.();
       return;
     }
-    if (this.state === STATE.TITLE) { this.time += dt; this.updateTitle(dt); this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); return; }
-    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); return; }  // Pause → eingefroren
+    if (this.state === STATE.TITLE) { this.time += dt; this.updateTitle(dt); this.sound?.startMenuMusic?.(); this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); return; }
+    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); this.sound?.stopMenuMusic?.(); return; }  // Pause → eingefroren
     this.time += dt;
+    this.sound?.stopMenuMusic?.();
     this.sound?.startMusic?.();    // Hintergrund-Melodie läuft während PLAYING (idempotent, restartet nach Pause)
     if (this.sound) this.sound.panicMode = this.lives === 1;
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }

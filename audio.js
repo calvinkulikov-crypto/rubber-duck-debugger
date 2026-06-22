@@ -1,6 +1,6 @@
 // Synthetisierte Effekte. Kein Asset, kein 404. Bei fehlendem WebAudio: still.
 export class Sound {
-  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; this.music = null; this.panicMode = false; }
+  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; this.music = null; this.menuMusic = null; this.panicMode = false; }
   init() {
     if (this.ctx) return;
     try {
@@ -21,7 +21,7 @@ export class Sound {
     o.connect(g); g.connect(this.ctx.destination);
     o.start(t); o.stop(t + dur);
   }
-  setMuted(m) { this.muted = m; if (m) { this.stopDrone(); this.stopMusic(); } }
+  setMuted(m) { this.muted = m; if (m) { this.stopDrone(); this.stopMusic(); this.stopMenuMusic(); } }
 
   // Einzelne, zeitlich GEPLANTE Note (blip nutzt currentTime → reicht für den Sequencer nicht).
   tone(freq, startT, dur, gain, type = "triangle") {
@@ -65,6 +65,34 @@ export class Sound {
     if (!this.music) return;
     if (this.music.timer) clearTimeout(this.music.timer);
     this.music = null;
+  }
+  // Sanfte Ambient-Musik für Menü + Intro: langsame Sinus-Pads, kaum hörbar.
+  startMenuMusic() {
+    if (!this.ok || this.muted || this.menuMusic) return;
+    const NOTES = [196.00, 220.00, 261.63, 220.00, 174.61, 196.00, 220.00, 261.63];
+    this.menuMusic = { step: 0, next: this.ctx.currentTime + 0.3, timer: null };
+    const tick = () => {
+      const m = this.menuMusic;
+      if (!m) return;
+      if (this.muted) { this.stopMenuMusic(); return; }
+      const STEP = 0.9;
+      const now = this.ctx.currentTime;
+      if (m.next < now) m.next = now + 0.1;
+      while (m.next < now + 0.5) {
+        const f = NOTES[m.step % NOTES.length];
+        this.tone(f, m.next, STEP * 2.2, 0.009, "sine");           // langer weicher Pad
+        if (m.step % 4 === 0) this.tone(f * 1.5, m.next, STEP * 2.8, 0.005, "sine"); // Quinte, noch leiser
+        m.next += STEP;
+        m.step += 1;
+      }
+      m.timer = setTimeout(tick, 120);
+    };
+    tick();
+  }
+  stopMenuMusic() {
+    if (!this.menuMusic) return;
+    if (this.menuMusic.timer) clearTimeout(this.menuMusic.timer);
+    this.menuMusic = null;
   }
   // Boss-Tension-Drone: tiefer, dumpfer Dauerton solang der Boss lebt (Game steuert Start/Stop).
   //  • Sägezahn-Grundton (55 Hz) + Sinus-Quinte, durch Lowpass → bedrohlich-dumpf
