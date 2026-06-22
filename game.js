@@ -321,7 +321,12 @@ export class Game {
     }
 
     const mult = this.multiplier();
-    if (mult > this._mult) this.sound?.comboUp(mult);
+    if (mult > this._mult) {
+      this.sound?.comboUp(mult);
+      if (mult >= CONFIG.combo.multCap && this._mult < CONFIG.combo.multCap) {
+        this.texts.push(new FloatingText(this.W / 2, this.H / 2 - 60, "⚡ IN THE ZONE", "#7ee787"));
+      }
+    }
     this._mult = mult;
 
     // Juice: Partikel/Texte tickern, Screen-Shake abklingen
@@ -553,6 +558,20 @@ export class Game {
     ctx.fillText("Enter / Klick = neu starten", this.W / 2, 420);
   }
 
+  // Flow-State: ab Schwelle grüner Rand-Glow, Intensität ∝ Multiplikator, im Takt pulsierend.
+  drawFlow(ctx) {
+    const mult = this.multiplier();
+    if (mult < CONFIG.fx.flowThreshold) return;
+    const span = CONFIG.combo.multCap - CONFIG.fx.flowThreshold + 1;
+    const intensity = Math.min(1, (mult - CONFIG.fx.flowThreshold + 1) / span);
+    const pulse = 0.6 + 0.4 * Math.sin(this.time * 8);
+    const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.34, this.W / 2, this.H / 2, this.H * 0.72);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(126,231,135,${0.22 * intensity * pulse})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.W, this.H);
+  }
+
   // Post-Process über ALLE States: radiale Vignette + CRT-Scanlines. Screen-space.
   drawFX(ctx) {
     const fx = CONFIG.fx;
@@ -591,6 +610,7 @@ export class Game {
       this.drawGameOver(ctx);
     }
     ctx.restore();
+    if (this.state === STATE.PLAYING) this.drawFlow(ctx);
     this.drawFX(ctx);     // Post-Process zuletzt, screen-space (kein Shake-Jitter)
     this.drawMute(ctx);   // immer sichtbar/klickbar, über dem Post-Process
   }
