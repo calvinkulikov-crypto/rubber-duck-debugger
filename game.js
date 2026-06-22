@@ -3,7 +3,7 @@ import { Duck, Beam, Bug, Boss, Particle, CodeBit, FloatingText, Ring } from "./
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
-  pickTargetByBuffer, tokenizeLine, skillCharge, skillReady,
+  pickTargetByBuffer, tokenizeLine,
 } from "./mechanics.js";
 
 export const STATE = { INTRO: "INTRO", TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
@@ -62,7 +62,6 @@ export class Game {
     this.muted = this.sound ? this.sound.muted : false;
     this._mult = 1;         // letzter Multiplikator → Combo-Arpeggio/Flow-Trigger
     this.leaked = 0; this.newBest = false;
-    this.skill = 0;         // Skill-Meter „/ultrathink": lädt pro Kill, Enter feuert bei voll
     this.skillFlash = 0;    // > 0 = kurzer lila Ganzfeld-Flash nach /ultrathink
   }
 
@@ -77,7 +76,7 @@ export class Game {
   confirm() {
     if (this.state === STATE.INTRO) { this.finishIntro(); return; }
     if (this.state === STATE.TITLE) this.start();
-    else if (this.state === STATE.GAMEOVER) this.start();
+    else if (this.state === STATE.GAMEOVER) this.state = STATE.TITLE;
   }
 
   updateIntro(dt) {
@@ -225,20 +224,14 @@ export class Game {
     if (bug.isBoss) this.shake = Math.max(this.shake, 0.3);
     // Ente quakt beim Bug-Kill (Tonhöhe ∝ Combo); Boss bleibt beim wuchtigen bossHit
     if (bug.isBoss) this.sound?.bossHit(); else this.sound?.quack(this.combo);
-    this.skill = skillCharge(this.skill, CONFIG.skill.gainPerKill, CONFIG.skill.max);
     if (bug.special) this.applySpecial(bug.effect, bug);
+    if (this.combo % CONFIG.skill.comboTrigger === 0) this.useSkill();
   }
 
-  // /ultrathink-Superpower (Enter bei vollem Meter): alle Nicht-Boss-Bugs auflösen +
+  // /ultrathink-Superpower (auto bei comboTrigger): alle Nicht-Boss-Bugs auflösen +
   // kurze Slow-Mo zum Durchatmen. Boss bleibt verschont (muss „von Hand" getippt werden).
   useSkill() {
     if (this.state !== STATE.PLAYING) return false;
-    if (!skillReady(this.skill, CONFIG.skill.max)) {
-      // Feedback: Enter ist gebunden, Meter aber noch nicht voll → kein stiller No-Op
-      this.texts.push(new FloatingText(this.W / 2, 100, `/ultrathink lädt… ${this.skill}/${CONFIG.skill.max}`, "#8b949e"));
-      return false;
-    }
-    this.skill = 0;
     let n = 0;
     for (const b of this.bugs) {
       if (b.dead || b.escaped || b.isBoss) continue;
@@ -548,23 +541,17 @@ export class Game {
       ctx.font = "14px ui-monospace, monospace";
       ctx.fillText("◴ compacting…", 16, 50);
     }
-    // Skill-Meter „/ultrathink": Ladebalken; bei voll pulsierender Enter-Prompt
-    const sm = CONFIG.skill;
-    const ready = skillReady(this.skill, sm.max);
+    // /ultrathink — Fortschrittsbalken zur nächsten Auto-Combo-Superpower
+    const trig = CONFIG.skill.comboTrigger;
+    const prog = this.combo % trig;
     const bx = 16, by = 74, bw = 132, bh = 7;
     ctx.textAlign = "left";
     ctx.font = "11px ui-monospace, monospace";
-    if (ready) {
-      const pulse = 0.55 + 0.45 * Math.sin(this.time * 9);
-      ctx.fillStyle = `rgba(210,168,255,${0.5 + 0.5 * pulse})`;
-      ctx.fillText("⏎ /ultrathink  READY", bx, by - 5);
-    } else {
-      ctx.fillStyle = "#6e7681";
-      ctx.fillText("/ultrathink", bx, by - 5);
-    }
+    ctx.fillStyle = "#6e7681";
+    ctx.fillText(`/ultrathink  ${prog}/${trig}`, bx, by - 5);
     ctx.fillStyle = "#21262d"; ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = ready ? "#d2a8ff" : "#3f4651";
-    ctx.fillRect(bx, by, bw * (this.skill / sm.max), bh);
+    ctx.fillStyle = "#3f4651";
+    ctx.fillRect(bx, by, bw * (prog / trig), bh);
   }
 
   drawPlayfield(ctx) {
@@ -637,24 +624,38 @@ export class Game {
     ctx.shadowBlur = 12 + pulse * 18;                       // pulsierender Glow
     ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 190);
     ctx.restore();
-    ctx.fillStyle = "#c9d1d9"; ctx.font = "18px ui-monospace, monospace";
-    ctx.fillText("Tippe die Claude-Code-/commands, die auf den Bugs stehen.", this.W / 2, 230);
-    ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
-    ctx.fillText("Tippe den /command des Bugs den du killen willst   •   Backspace = korrigieren", this.W / 2, 290);
-    ctx.fillText("Beliebige Reihenfolge. Tippfehler bricht die Combo.", this.W / 2, 314);
-    // Spezial-Bugs (leuchten) — Legende
-    ctx.font = "14px ui-monospace, monospace";
-    ctx.fillStyle = "#58a6ff"; ctx.fillText("/clear", this.W / 2 - 150, 348);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("leert das Feld", this.W / 2 - 60, 348);
-    ctx.fillStyle = "#7ee787"; ctx.fillText("/compact", this.W / 2 - 150, 370);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("= Slow-Mo", this.W / 2 - 60, 370);
-    ctx.fillStyle = "#ffd23f"; ctx.fillText("/cost", this.W / 2 - 150, 392);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("= Bonus-Score", this.W / 2 - 60, 392);
+    ctx.fillStyle = "#c9d1d9"; ctx.font = "17px ui-monospace, monospace";
+    ctx.fillText("Tippe die Claude-Code-/commands, die auf den Bugs stehen.", this.W / 2, 228);
+    ctx.fillStyle = "#8b949e"; ctx.font = "13px ui-monospace, monospace";
+    ctx.fillText("Beliebige Reihenfolge  ·  Backspace = korrigieren  ·  Tippfehler bricht Combo", this.W / 2, 256);
+    // Trennlinie
+    ctx.strokeStyle = "#21262d"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(this.W / 2 - 220, 272); ctx.lineTo(this.W / 2 + 220, 272); ctx.stroke();
+    // Sonder-Bugs Legende + /ultrathink
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.fillStyle = "#6e7681"; ctx.fillText("— Sonder-Bugs —", this.W / 2, 289);
+    const lx = this.W / 2 - 160, rx = this.W / 2 - 50;
+    ctx.textAlign = "left"; ctx.font = "14px ui-monospace, monospace";
+    ctx.fillStyle = "#58a6ff"; ctx.fillText("/clear", lx, 313);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("leert das Feld sofort", rx, 313);
+    ctx.fillStyle = "#7ee787"; ctx.fillText("/compact", lx, 335);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("Bugs in Zeitlupe", rx, 335);
+    ctx.fillStyle = "#ffd23f"; ctx.fillText("/cost", lx, 357);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("+1500 Bonus-Score", rx, 357);
+    // Trennlinie
+    ctx.strokeStyle = "#21262d";
+    ctx.beginPath(); ctx.moveTo(this.W / 2 - 220, 371); ctx.lineTo(this.W / 2 + 220, 371); ctx.stroke();
+    // /ultrathink
+    ctx.textAlign = "center"; ctx.font = "12px ui-monospace, monospace";
+    ctx.fillStyle = "#6e7681"; ctx.fillText("— Superpower —", this.W / 2, 388);
+    ctx.textAlign = "left"; ctx.font = "14px ui-monospace, monospace";
+    ctx.fillStyle = "#d2a8ff"; ctx.fillText("⚡ /ultrathink", lx, 410);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("× 15 Kombi → Auto-Clear + Slow-Mo", rx, 410);
     ctx.textAlign = "center";
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
-    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("▶ Klick zum Start", this.W / 2, 430);
+    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("▶ Klick zum Start", this.W / 2, 448);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
-    ctx.fillText(`Best: ${this.best}`, this.W / 2, 462);
+    ctx.fillText(`Best: ${this.best}`, this.W / 2, 476);
     // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
     if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
       ctx.fillStyle = "#e5c07b"; ctx.font = "14px ui-monospace, monospace";
@@ -692,7 +693,7 @@ export class Game {
       ly += 28;
     }
     ctx.textAlign = "center"; ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
-    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("› Enter / Klick = neu starten", this.W / 2, ly + 40);
+    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("› Enter / Klick = zum Menü", this.W / 2, ly + 40);
   }
 
   // Flow-State: ab Schwelle grüner Rand-Glow, Intensität ∝ Multiplikator, im Takt pulsierend.

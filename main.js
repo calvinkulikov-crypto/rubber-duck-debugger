@@ -38,8 +38,7 @@ window.addEventListener("keydown", (e) => {
     if (e.code === "Enter" || e.code === "Space" || e.key.length === 1) { e.preventDefault(); game.confirm(); }
     return;
   }
-  // PLAYING: Enter feuert /ultrathink-Superpower (wenn Meter voll), sonst Tippen
-  if (e.code === "Enter") { e.preventDefault(); game.useSkill(); return; }
+  // PLAYING: /ultrathink feuert auto per Combo; Enter ignoriert
   if (e.code === "Backspace") { e.preventDefault(); game.handleBackspace(); return; }
   // ein druckbares Zeichen (inkl. "/") → Buffer; Modifier-Kombis ignorieren
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
