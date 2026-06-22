@@ -433,9 +433,15 @@ export class Game {
     ctx.fillStyle = "#c9d1d9";
     const dy = this.typedPunch > 0 ? -Math.sin((1 - this.typedPunch / 0.12) * Math.PI) * 3 : 0;
     ctx.fillText(this.typed, 40, y + dy);
+    const w = ctx.measureText(this.typed).width;
+    // Autocomplete-Ghost: Rest des gelockten Commands grau vorgeschlagen (Claude-Code-Feel) →
+    // Cursor sitzt an der Naht zwischen Getipptem und Vorschlag, du tippst über den Ghost.
+    if (this.typed && this.target && this.target.command && this.target.command.startsWith(this.typed)) {
+      ctx.fillStyle = "#484f58";
+      ctx.fillText(this.target.command.slice(this.typed.length), 40 + w, y + dy);
+    }
     // blinkender Cursor hinter dem Getippten
     if ((Math.floor(this.time * 2) % 2) === 0) {
-      const w = ctx.measureText(this.typed).width;
       ctx.fillStyle = "#7ee787";
       ctx.fillRect(42 + w, y - 15, 9, 18);
     }
