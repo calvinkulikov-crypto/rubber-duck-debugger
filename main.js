@@ -28,6 +28,11 @@ canvas.addEventListener("mousedown", (e) => {
 
 window.addEventListener("keydown", (e) => {
   if (e.code === "Escape") { e.preventDefault(); game.togglePause(); return; }
+  // PAUSED: jede Taste (nicht nur Esc) setzt fort — verhindert Verwirrung nach visibilitychange
+  if (game.state === STATE.PAUSED) {
+    if (e.key.length === 1 || e.code === "Enter" || e.code === "Space") { e.preventDefault(); game.togglePause(); }
+    return;
+  }
   if (game.state !== STATE.PLAYING) {
     // Auf Intro/Title/GameOver: Enter/Space/Buchstabe = los
     if (e.code === "Enter" || e.code === "Space" || e.key.length === 1) { e.preventDefault(); game.confirm(); }
