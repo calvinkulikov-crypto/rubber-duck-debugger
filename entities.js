@@ -8,6 +8,7 @@ export class Duck {
     this.w = CONFIG.duck.w;
     this.h = CONFIG.duck.h;
     this.recoil = 0;          // 0..recoilTime, zählt runter
+    this.bobT = 0;            // Wasser-Schaukel-Phase (akkumuliert in update)
   }
 
   update(dt, input) {
@@ -20,6 +21,7 @@ export class Duck {
     const step = clamp(dx, -sp * dt, sp * dt);
     this.x = clamp(this.x + step, this.w / 2, CONFIG.canvas.w - this.w / 2);
     if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt);
+    this.bobT += dt;          // sanftes Auf-und-Ab + Schaukeln auf dem Wasser
   }
 
   triggerRecoil() { this.recoil = CONFIG.duck.recoilTime; }
@@ -30,8 +32,10 @@ export class Duck {
   draw(ctx) {
     const squash = this.recoil > 0 ? 1 + (this.recoil / CONFIG.duck.recoilTime) * 0.18 : 1;
     const w = this.w, h = this.h / squash;
+    const bob = Math.sin(this.bobT * 2.2) * 2.2;   // Wellengang
     ctx.save();
-    ctx.translate(this.x, this.y);
+    ctx.translate(this.x, this.y + bob);
+    ctx.rotate(Math.sin(this.bobT * 1.6) * 0.04);  // leichtes Schaukeln auf dem Wasser
     // Körper
     ctx.fillStyle = "#ffd23f";
     ctx.beginPath();

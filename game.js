@@ -333,6 +333,42 @@ export class Game {
     }
   }
 
+  // Minimal-Wasser am Editor-Boden: die Gummiente schwimmt auf der "Code-Oberfläche".
+  // Bewusst transluzent → Terminal/IDE-Look (Alleinstellungsmerkmal) bleibt lesbar.
+  drawWater(ctx) {
+    const s = CONFIG.floorY;             // Wasseroberfläche = Editor-Bodenlinie
+    const t = this.time;
+    ctx.save();
+    // transluzenter Wasserkörper (Verlauf nach unten auslaufend)
+    const g = ctx.createLinearGradient(0, s, 0, this.H);
+    g.addColorStop(0, "rgba(56,139,253,0.12)");
+    g.addColorStop(1, "rgba(56,139,253,0.03)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, s, this.W, this.H - s);
+    // animierte Wellen-Oberfläche (zwei überlagerte Sinus → unregelmäßig)
+    ctx.beginPath();
+    ctx.moveTo(0, s);
+    for (let x = 0; x <= this.W; x += 14) {
+      const y = s + Math.sin(x * 0.035 + t * 2) * 2.2 + Math.sin(x * 0.013 - t * 1.3) * 1.6;
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(88,166,255,0.55)";
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = "rgba(88,166,255,0.5)";
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    // expandierende Ripple unter der Ente
+    ctx.shadowBlur = 0;
+    const rp = (t % 1.6) / 1.6;
+    ctx.globalAlpha = Math.max(0, 1 - rp) * 0.5;
+    ctx.strokeStyle = "rgba(88,166,255,0.6)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(this.duck.x, s + 6, 16 + rp * 26, 3 + rp * 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawTerminal(ctx) {
     const y = CONFIG.floorY + 30;
     ctx.textAlign = "left";
@@ -379,6 +415,7 @@ export class Game {
 
   drawPlayfield(ctx) {
     this.drawBackground(ctx);
+    this.drawWater(ctx);
     for (const bug of this.bugs) bug.draw(ctx, this.time);
     for (const b of this.beams) b.draw(ctx);
     this.duck.draw(ctx);
