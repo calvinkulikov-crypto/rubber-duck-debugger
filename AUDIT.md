@@ -40,17 +40,22 @@ Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen 
 - **MCP (Idee 4):** echtes MCP nicht machbar (statisch, kein Backend, Tech-Guardrail).
   Nur als Flavor/Naming denkbar (Gegner-/Power-Typ „MCP").
 
-**STAND PIVOT:** Code **Task 0–6 fertig + gepusht auf Branch `pivot-typing`** (commands statt labels,
-Typing/Auto-Lock, Execute-Strahlen, Boss-Sequenz, Terminal-Prompt, Input-Remap, Intro „Hey Claude").
-Verifiziert: 13/13 mechanics-Tests grün, `node --check` alle Files, **headless Logik-Smoke** (Kill,
-Tippfehler bricht Combo aber hält Lock/Buffer, Boss-Sequenz seq→dead, Case/Space-Normalisierung).
-`main`-HEAD = unverändert statisches T12-Game = Fallback.
+**STAND PIVOT:** Code **Task 0–6 + 2 Playtest-Iterationen fertig + gepusht auf Branch `pivot-typing`**
+(commands statt labels, Typing, Execute-Strahlen, Boss-Sequenz, Terminal-Prompt, Input-Remap,
+Intro „Hey Claude"). **Iteration 1 (Speed/Targeting):** vy gesenkt (fast 130→78, std 60→44, tank 45→30),
+Wave-Budget 4+2n→3+n, Spawn langsamer; Auto-Lock → freies Buffer-Targeting (`pickTargetByBuffer`,
+jeder Bug in beliebiger Reihenfolge killbar). **Iteration 2 (Claude-Code-Theme):** echte CC-Commands
+(`/help /model /init /status /memory /agents` · `/mcp /vim /bug /ide /login` · `/permissions
+/terminal-setup /output-style /add-dir`); **Spezial-Bugs** (leuchten): `/clear`=Feld leeren,
+`/compact`=Slow-Mo 3s, `/cost`=Bonus-Score; Boss „Heisenbug"→„Context Overflow" (`/compact→/clear→/resume`).
+Verifiziert: **19/19 mechanics-Tests grün**, `node --check` alle Files, **headless Smoke** (clear leert
+Feld, compact-Slow-Mo skaliert vy, cost-Bonus, freie Reihenfolge). `main`-HEAD = statisches T12 = Fallback.
 
-**OFFEN = Task 7 (braucht Calvin/Browser):** 1) `python3 -m http.server 8000` → Playtest 3–4 Runden,
-v.a. ob Tank-Commands (`/refactor`) bei aktuellem `vy` tippbar sind → nur `config.js`-Werte justieren.
-2) Konsole error/404-frei (Intro→Play→Boss→GameOver→Restart). 3) Erst NACH bestandenem Playtest:
-`git checkout main && git merge --no-ff pivot-typing && git push origin main`. 4) `! npx vercel` (Login
-interaktiv, Calvin) → Live-URL == lokal → Repo+Live-Link in Abgabe-Thread.
+**OFFEN = Task 7 (braucht Calvin/Browser):** 1) `python3 -m http.server 8000` → Playtest 3–4 Runden:
+Speed jetzt ok? Spezial-Bug-Frequenz (16%) angenehm? `/c`-Cluster (clear/compact/cost) verwirrend? → nur
+`config.js`-Werte justieren. 2) Konsole error/404-frei (Intro→Play→Boss→GameOver→Restart). 3) Erst NACH
+bestandenem Playtest: `git checkout main && git merge --no-ff pivot-typing && git push origin main`.
+4) `! npx vercel` (Login interaktiv, Calvin) → Live-URL == lokal → Repo+Live-Link in Abgabe-Thread.
 **Deadline: Di 18:00 = morgen.** Kippt der Pivot → `main` (statisch) ist abgabefähig.
 
 ## Stand

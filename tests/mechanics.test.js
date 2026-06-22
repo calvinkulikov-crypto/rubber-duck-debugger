@@ -6,6 +6,8 @@ import {
   bugReachedFloor, beamHitsBug,
   matchCommand, pickTarget, pickTargetByBuffer,
 } from "../mechanics.js";
+import { Bug } from "../entities.js";
+import { CONFIG } from "../config.js";
 
 test("clamp begrenzt nach unten/oben", () => {
   assert.equal(clamp(5, 0, 10), 5);
@@ -97,4 +99,32 @@ test("pickTargetByBuffer: kein passender Bug → -1", () => {
 test("pickTargetByBuffer: tote Bugs werden ignoriert", () => {
   const bugs = [{ command: "/fix", y: 400, dead: true }, { command: "/fix", y: 100, dead: false }];
   assert.equal(pickTargetByBuffer(bugs, "/fix"), 1);
+});
+
+test("Bug special: Spec überschreibt command/effect/flag, hp=1", () => {
+  const clear = CONFIG.specials.find((s) => s.effect === "clear");
+  const bug = new Bug(null, 100, 1, 0.5, clear);
+  assert.equal(bug.special, true);
+  assert.equal(bug.effect, "clear");
+  assert.equal(bug.command, clear.command);
+  assert.equal(bug.hp, 1);
+  assert.equal(bug.isBoss, false);
+});
+
+test("Bug normal: special bleibt false, command aus typeKey-Pool", () => {
+  const bug = new Bug("standard", 100, 1, 0.5);
+  assert.equal(bug.special, false);
+  assert.equal(bug.effect, null);
+  assert.ok(CONFIG.bugTypes.standard.commands.includes(bug.command));
+});
+
+test("pickTargetByBuffer trennt /c-Spezial-Commands sauber", () => {
+  const bugs = [
+    { command: "/clear",   y: 200, dead: false },
+    { command: "/compact", y: 300, dead: false },
+    { command: "/cost",    y: 250, dead: false },
+  ];
+  assert.equal(pickTargetByBuffer(bugs, "/cl"), 0);  // nur /clear
+  assert.equal(pickTargetByBuffer(bugs, "/com"), 1); // nur /compact
+  assert.equal(pickTargetByBuffer(bugs, "/cos"), 2); // nur /cost
 });

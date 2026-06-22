@@ -91,19 +91,24 @@ export class Beam {
 }
 
 export class Bug {
-  // typeKey: "standard" | "fast" | "tank"; speedMult skaliert vy pro Welle
-  constructor(typeKey, x, speedMult, phase) {
-    const t = CONFIG.bugTypes[typeKey];
-    this.type = typeKey;
+  // typeKey: "standard" | "fast" | "tank"; speedMult skaliert vy pro Welle.
+  // special: optionales Spec-Objekt aus CONFIG.specials → Effekt-Bug (typeKey wird ignoriert).
+  constructor(typeKey, x, speedMult, phase, special = null) {
+    const t = special || CONFIG.bugTypes[typeKey];
+    this.type = special ? "special" : typeKey;
+    this.special = !!special;
+    this.effect = special ? special.effect : null;
     this.x = x;
     this.y = -t.r;
     this.r = t.r;
     this.vy = t.vy * speedMult;
-    this.hp = t.hp;
-    this.maxHp = t.hp;
+    this.hp = special ? 1 : t.hp;
+    this.maxHp = this.hp;
     this.points = t.points;
     this.color = t.color;
-    this.command = t.commands[Math.floor((phase * 97) % t.commands.length)]; // deterministische Wahl
+    this.command = special
+      ? special.command
+      : t.commands[Math.floor((phase * 97) % t.commands.length)]; // deterministische Wahl
     this.typedLen = 0;           // wie viele Zeichen des Commands schon getippt (vom Game gesetzt)
     this.label = this.command;   // Alias für FloatingText beim Kill
     this.phase = phase;          // für Krabbel-/Drift-Animation
@@ -122,6 +127,17 @@ export class Bug {
     const wob = Math.sin((time + this.phase) * 10) * this.r * 0.12;
     ctx.save();
     ctx.translate(this.x, this.y);
+    // Spezial-Bug: pulsierender Leucht-Ring, damit der Spieler ihn sofort erkennt
+    if (this.special) {
+      const pulse = 0.5 + 0.5 * Math.sin(time * 6);
+      ctx.save();
+      ctx.globalAlpha = 0.35 + 0.45 * pulse;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = this.color; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(0, 0, this.r + 6 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     ctx.fillStyle = this.flash > 0 ? "#ffffff" : this.color;
     // Körper
     ctx.beginPath();

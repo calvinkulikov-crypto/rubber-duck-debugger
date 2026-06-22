@@ -47,6 +47,7 @@ export class Game {
     this.spawnTimer = 0;
     this.banner = 0;           // > 0 = Wellen-Banner sichtbar, kein Spawn
     this.speedMult = 1;
+    this.slowmo = 0;           // > 0 = Slow-Mo aktiv (/compact-Effekt), skaliert Bug-Tempo
     this.bossPending = false;
     this.codeLines = [
       "function fixBug(duck) {", "  while (bugs.length) {", "    duck.explain(bug);",
@@ -172,6 +173,13 @@ export class Game {
   }
 
   spawnBug() {
+    // seltener Spezial-Bug (deterministisch-pseudo) → Effekt-Bug aus CONFIG.specials
+    if (((this.time * 271) % 1) < CONFIG.specialChance && CONFIG.specials.length) {
+      const s = CONFIG.specials[Math.floor((this.time * 53) % CONFIG.specials.length)];
+      const x = s.r + ((this.time * 733) % (CONFIG.canvas.w - 2 * s.r));
+      this.bugs.push(new Bug(null, x, this.speedMult, this.time, s));
+      return;
+    }
     const roll = (this.time * 131) % 1;             // deterministisch-pseudo
     const key = roll < 0.18 ? "tank" : roll < 0.5 ? "fast" : "standard";
     const t = CONFIG.bugTypes[key];
@@ -192,6 +200,30 @@ export class Game {
     if (mult > 1) this.texts.push(new FloatingText(bug.x, bug.y - 18, `×${mult}`, "#7ee787"));
     if (bug.isBoss) this.shake = Math.max(this.shake, 0.3);
     this.sound?.[bug.isBoss ? "bossHit" : "pop"]();
+    if (bug.special) this.applySpecial(bug.effect, bug);
+  }
+
+  // Spezial-Bug-Effekte: Claude-Code-Commands mit Spielfeld-Wirkung.
+  applySpecial(effect, src) {
+    if (effect === "clear") {
+      // /clear leert den Kontext → alle anderen lebenden Nicht-Boss-Bugs poppen (Panik-Knopf)
+      for (const b of this.bugs) {
+        if (b === src || b.dead || b.escaped || b.isBoss) continue;
+        b.dead = true;
+        for (let i = 0; i < 6; i++) this.particles.push(new Particle(b.x, b.y, b.color));
+      }
+      this.shake = Math.max(this.shake, 0.3);
+      this.texts.push(new FloatingText(this.W / 2, this.H / 2, "CONTEXT CLEARED", "#58a6ff"));
+      this.sound?.waveClear?.();
+    } else if (effect === "slowmo") {
+      // /compact → Verschnaufpause, Bugs in Zeitlupe
+      this.slowmo = CONFIG.slowmoTime;
+      this.texts.push(new FloatingText(this.W / 2, 150, "/compact — SLOW-MO", "#7ee787"));
+    } else if (effect === "bonus") {
+      // /cost → Token-Bonus, Score-Windfall
+      this.score += CONFIG.bonusScore;
+      this.texts.push(new FloatingText(src.x, src.y - 20, `+${CONFIG.bonusScore}`, "#ffd23f"));
+    }
   }
 
   onEscape(bug) {
@@ -223,10 +255,13 @@ export class Game {
     this.time += dt;
     if (this.wave === 0) this.startWave();          // erste Welle starten
 
+    if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt);
+    const ts = this.slowmo > 0 ? CONFIG.slowmoScale : 1;   // Slow-Mo skaliert Bug-Tempo + Spawn
+
     if (this.banner > 0) {
       this.banner -= dt;
     } else if (this.toSpawn > 0) {
-      this.spawnTimer -= dt;
+      this.spawnTimer -= dt * ts;
       if (this.spawnTimer <= 0) { this.spawnBug(); this.toSpawn -= 1; this.spawnTimer = this.spawnInterval(); }
     }
 
@@ -237,7 +272,7 @@ export class Game {
     // Beams sind rein kosmetisch (in handleChar gespawnt) → nur fortbewegen
     this.fireCd -= dt;
     for (const b of this.beams) b.update(dt);
-    for (const bug of this.bugs) bug.update(dt, this.time);
+    for (const bug of this.bugs) bug.update(dt * ts, this.time);   // Bugs in Slow-Mo, Strahlen/Juice normal
     this.beams = this.beams.filter((b) => !b.dead);
 
     // Bug × Boden (Korruption) + tote/entkommene entfernen
@@ -334,6 +369,12 @@ export class Game {
       ctx.fillStyle = "#7ee787";
       ctx.fillText(`×${mult}`, this.W / 2, 50);
     }
+    if (this.slowmo > 0) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#7ee787";
+      ctx.font = "14px ui-monospace, monospace";
+      ctx.fillText("◴ compacting…", 16, 50);
+    }
   }
 
   drawPlayfield(ctx) {
@@ -389,18 +430,27 @@ export class Game {
     ctx.fillStyle = "#ffd23f"; ctx.font = "44px ui-monospace, monospace";
     ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 190);
     ctx.fillStyle = "#c9d1d9"; ctx.font = "18px ui-monospace, monospace";
-    ctx.fillText("Erklär dem Entchen deinen Bug.", this.W / 2, 230);
+    ctx.fillText("Tippe die Claude-Code-/commands, die auf den Bugs stehen.", this.W / 2, 230);
     ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
-    ctx.fillText("Tippe die /commands, die auf den Bugs stehen   •   Backspace = korrigieren", this.W / 2, 300);
-    ctx.fillText("Tippe den /command des Bugs den du killen willst. Tippfehler bricht die Combo.", this.W / 2, 326);
+    ctx.fillText("Tippe den /command des Bugs den du killen willst   •   Backspace = korrigieren", this.W / 2, 290);
+    ctx.fillText("Beliebige Reihenfolge. Tippfehler bricht die Combo.", this.W / 2, 314);
+    // Spezial-Bugs (leuchten) — Legende
+    ctx.font = "14px ui-monospace, monospace";
+    ctx.fillStyle = "#58a6ff"; ctx.fillText("/clear", this.W / 2 - 150, 348);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("leert das Feld", this.W / 2 - 60, 348);
+    ctx.fillStyle = "#7ee787"; ctx.fillText("/compact", this.W / 2 - 150, 370);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("= Slow-Mo", this.W / 2 - 60, 370);
+    ctx.fillStyle = "#ffd23f"; ctx.fillText("/cost", this.W / 2 - 150, 392);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("= Bonus-Score", this.W / 2 - 60, 392);
+    ctx.textAlign = "center";
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
-    ctx.fillText("Klick zum Start", this.W / 2, 400);
+    ctx.fillText("Klick zum Start", this.W / 2, 430);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
-    ctx.fillText(`Best: ${this.best}`, this.W / 2, 440);
+    ctx.fillText(`Best: ${this.best}`, this.W / 2, 462);
     // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
     if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
       ctx.fillStyle = "#e5c07b"; ctx.font = "14px ui-monospace, monospace";
-      ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 470);
+      ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 492);
     }
   }
 
