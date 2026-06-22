@@ -6,17 +6,25 @@ import {
   matchCommand, pickTarget,
 } from "./mechanics.js";
 
-export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
+export const STATE = { INTRO: "INTRO", TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
 
 export class Game {
   constructor(sound = null) {
     this.W = CONFIG.canvas.w;
     this.H = CONFIG.canvas.h;
     this.sound = sound;
-    this.state = STATE.TITLE;
+    this.state = STATE.INTRO;
     this.input = { mouseX: this.W / 2, firing: false, left: false, right: false };
     this.best = this.loadBest();
     this.reset();
+    // Intro-Dialog (bewusst NICHT in reset() → Restart überspringt das Intro)
+    this.intro = {
+      lines: [
+        { who: "you",    text: "Hey Claude, lass uns ein Spiel bauen." },
+        { who: "claude", text: "Klar. Bug-Debugger mit Gummiente: tipp die /commands, kill die Bugs, rette den Build. 🦆" },
+      ],
+      li: 0, ci: 0, t: 0, cps: 38, holdAfter: 1.1, holdT: 0,
+    };
   }
 
   reset() {
@@ -57,9 +65,25 @@ export class Game {
 
   // Klick/Taste-"bestätigen" je nach State
   confirm() {
+    if (this.state === STATE.INTRO) { this.finishIntro(); return; }
     if (this.state === STATE.TITLE) this.start();
     else if (this.state === STATE.GAMEOVER) this.start();
   }
+
+  updateIntro(dt) {
+    const it = this.intro;
+    const line = it.lines[it.li];
+    if (it.ci < line.text.length) {
+      it.t += dt;
+      while (it.t >= 1 / it.cps && it.ci < line.text.length) { it.t -= 1 / it.cps; it.ci += 1; }
+    } else if (it.li < it.lines.length - 1) {
+      it.li += 1; it.ci = 0; it.t = 0;       // nächste Zeile
+    } else {
+      it.holdT += dt;
+      if (it.holdT >= it.holdAfter) this.finishIntro();
+    }
+  }
+  finishIntro() { this.state = STATE.TITLE; }
 
   releaseTarget() {
     if (this.target) this.target.typedLen = 0;
@@ -191,6 +215,7 @@ export class Game {
   saveBest() { try { localStorage.setItem("rdd_best", String(this.best)); } catch { /* privater modus: nur in-memory */ } }
 
   update(dt) {
+    if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
     if (this.state !== STATE.PLAYING) return;
     this.time += dt;
     if (this.wave === 0) this.startWave();          // erste Welle starten
@@ -325,6 +350,35 @@ export class Game {
     }
   }
 
+  drawIntro(ctx) {
+    ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, this.W, this.H);
+    ctx.textAlign = "left";
+    ctx.font = "16px ui-monospace, monospace";
+    ctx.fillStyle = "#6e7681";
+    ctx.fillText("claude-code · rubber-duck-debugger", 40, 70);
+    const it = this.intro;
+    let y = 150;
+    for (let i = 0; i <= it.li; i++) {
+      const line = it.lines[i];
+      const shown = i < it.li ? line.text : line.text.slice(0, it.ci);
+      ctx.font = "14px ui-monospace, monospace";
+      ctx.fillStyle = line.who === "you" ? "#7ee787" : "#e5c07b";
+      ctx.fillText(line.who === "you" ? "you ›" : "claude ›", 40, y);
+      ctx.fillStyle = "#c9d1d9";
+      ctx.font = "18px ui-monospace, monospace";
+      const wrapped = shown.match(/.{1,62}(\s|$)/g) || [shown];   // grober Umbruch bei ~62 Zeichen
+      for (const w of wrapped) { ctx.fillText(w, 110, y); y += 28; }
+      y += 16;
+    }
+    // Cursor an der aktiven Zeile
+    if ((Math.floor(this.time * 2) % 2) === 0) {
+      ctx.fillStyle = "#7ee787"; ctx.fillRect(110, y - 36, 9, 18);
+    }
+    ctx.fillStyle = "#6e7681"; ctx.font = "13px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("Enter / Klick = überspringen", this.W / 2, this.H - 40);
+  }
+
   drawTitle(ctx) {
     this.drawBackground(ctx);
     ctx.fillStyle = "rgba(13,17,23,0.78)"; ctx.fillRect(0, 0, this.W, this.H);
@@ -369,7 +423,9 @@ export class Game {
       const s = this.shake * 14;
       ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);  // echter Frame-Jitter
     }
-    if (this.state === STATE.PLAYING) {
+    if (this.state === STATE.INTRO) {
+      this.drawIntro(ctx);
+    } else if (this.state === STATE.PLAYING) {
       this.drawPlayfield(ctx);
     } else if (this.state === STATE.PAUSED) {
       this.drawPlayfield(ctx);                 // eingefrorener Frame
