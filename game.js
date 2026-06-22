@@ -27,6 +27,14 @@ export class Game {
       ],
       li: 0, ci: 0, t: 0, cps: 38, holdAfter: 1.1, holdT: 0,
     };
+    // Title-Screen-Animation: Typewriter + bobbende Ente + Ambient-Bugs (lebendiger Startscreen)
+    this.title = {
+      t: 0, ci: 0, cps: 42, quackT: 2.0,
+      head: [..."🦆 Rubber Duck Debugger"],
+      tag:  [..."Tippe die /commands der Bugs — kill sie."],
+      duck: new Duck(),
+      bugs: this.makeTitleBugs(),
+    };
   }
 
   reset() {
@@ -79,7 +87,7 @@ export class Game {
   confirm() {
     if (this.state === STATE.INTRO) { this.finishIntro(); return; }
     if (this.state === STATE.TITLE) this.start();
-    else if (this.state === STATE.GAMEOVER) this.state = STATE.TITLE;
+    else if (this.state === STATE.GAMEOVER) this.enterTitle();
   }
 
   updateIntro(dt) {
@@ -98,7 +106,42 @@ export class Game {
       if (it.holdT >= it.holdAfter) this.finishIntro();
     }
   }
-  finishIntro() { this.state = STATE.TITLE; }
+  finishIntro() { this.enterTitle(); }
+
+  // Title betreten → Typewriter + Ambient neu starten (frischer Aufbau jedes Mal)
+  enterTitle() {
+    this.state = STATE.TITLE;
+    this.title.t = 0;
+    this.title.ci = 0;
+    this.title.quackT = 2.0;
+    this.title.duck = new Duck();
+    this.title.bugs = this.makeTitleBugs();
+  }
+
+  makeTitleBugs() {
+    const keys = ["standard", "fast", "tank", "standard", "fast"];
+    const bugs = [];
+    for (let i = 0; i < keys.length; i++) {
+      const x = 80 + Math.random() * (this.W - 160);
+      const b = new Bug(keys[i], x, 0.32, i * 1.7);   // langsamer Ambient-Drift (speedMult 0.32)
+      b.y = Math.random() * this.H;                    // über den Screen verteilt starten
+      bugs.push(b);
+    }
+    return bugs;
+  }
+
+  updateTitle(dt) {
+    const T = this.title;
+    const total = T.head.length + T.tag.length;
+    if (T.ci < total) T.ci = Math.min(total, T.ci + dt * T.cps);
+    T.duck.update(dt, { mouseX: T.duck.x, left: false, right: false });   // nur bobben, kein Drift
+    for (const b of T.bugs) {
+      b.update(dt, this.time);
+      if (b.y > this.H + 30) { b.y = -30; b.x = 60 + Math.random() * (this.W - 120); }  // Loop
+    }
+    T.quackT -= dt;
+    if (T.quackT <= 0) { this.sound?.quack?.(0); T.quackT = 3.6; }        // gelegentliches Quaken
+  }
 
   releaseTarget() {
     if (this.target) this.target.typedLen = 0;
@@ -346,7 +389,8 @@ export class Game {
       this.sound?.stopDrone?.();
       return;
     }
-    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); return; }  // Pause/Title → Drone aus
+    if (this.state === STATE.TITLE) { this.time += dt; this.updateTitle(dt); this.sound?.stopDrone?.(); return; }
+    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); return; }  // Pause → eingefroren, Drone aus
     this.time += dt;
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }
     if (this.typedPunch > 0) this.typedPunch = Math.max(0, this.typedPunch - dt);
@@ -634,55 +678,106 @@ export class Game {
     ctx.fillText("Enter / Klick = überspringen", this.W / 2, this.H - 40);
   }
 
-  drawTitle(ctx) {
-    this.drawBackground(ctx);
-    ctx.fillStyle = "rgba(13,17,23,0.78)"; ctx.fillRect(0, 0, this.W, this.H);
-    ctx.textAlign = "center";
-    const pulse = 0.5 + 0.5 * Math.sin(this.time * 3);
+  // Karte (Box mit Header) für das aufgeräumte Title-Layout
+  drawCard(ctx, x, y, w, h, title) {
     ctx.save();
-    ctx.fillStyle = "#ffd23f";
-    ctx.font = "44px ui-monospace, monospace";
-    ctx.shadowColor = "#ffd23f";
-    ctx.shadowBlur = 12 + pulse * 18;                       // pulsierender Glow
-    ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 190);
+    ctx.fillStyle = "rgba(22,27,34,0.88)"; ctx.strokeStyle = "#30363d"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, 8); else ctx.rect(x, y, w, h);
+    ctx.fill(); ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = "#c9d1d9"; ctx.font = "17px ui-monospace, monospace";
-    ctx.fillText("Tippe die Claude-Code-/commands, die auf den Bugs stehen.", this.W / 2, 228);
-    ctx.fillStyle = "#8b949e"; ctx.font = "13px ui-monospace, monospace";
-    ctx.fillText("Beliebige Reihenfolge  ·  Backspace = korrigieren  ·  Tippfehler bricht Combo", this.W / 2, 256);
-    // Trennlinie
-    ctx.strokeStyle = "#21262d"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(this.W / 2 - 220, 272); ctx.lineTo(this.W / 2 + 220, 272); ctx.stroke();
-    // Sonder-Bugs Legende + /ultrathink
-    ctx.font = "12px ui-monospace, monospace";
-    ctx.fillStyle = "#6e7681"; ctx.fillText("— Sonder-Bugs —", this.W / 2, 289);
-    const lx = this.W / 2 - 160, rx = this.W / 2 - 50;
-    ctx.textAlign = "left"; ctx.font = "14px ui-monospace, monospace";
-    ctx.fillStyle = "#58a6ff"; ctx.fillText("/clear", lx, 313);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("leert das Feld sofort", rx, 313);
-    ctx.fillStyle = "#7ee787"; ctx.fillText("/compact", lx, 335);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("Bugs in Zeitlupe", rx, 335);
-    ctx.fillStyle = "#ffd23f"; ctx.fillText("/cost", lx, 357);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("+1500 Bonus-Score", rx, 357);
-    // Trennlinie
-    ctx.strokeStyle = "#21262d";
-    ctx.beginPath(); ctx.moveTo(this.W / 2 - 220, 371); ctx.lineTo(this.W / 2 + 220, 371); ctx.stroke();
-    // /ultrathink
-    ctx.textAlign = "center"; ctx.font = "12px ui-monospace, monospace";
-    ctx.fillStyle = "#6e7681"; ctx.fillText("— Superpower —", this.W / 2, 388);
-    ctx.textAlign = "left"; ctx.font = "14px ui-monospace, monospace";
-    ctx.fillStyle = "#d2a8ff"; ctx.fillText("⚡ /ultrathink", lx, 410);
-    ctx.fillStyle = "#8b949e"; ctx.fillText("× 15 Kombi → Auto-Clear + Slow-Mo", rx, 410);
+    ctx.textAlign = "left"; ctx.font = "11px ui-monospace, monospace"; ctx.fillStyle = "#6e7681";
+    ctx.fillText(title, x + 16, y + 22);
+  }
+
+  drawTitle(ctx) {
+    const cx = this.W / 2;
+    const T = this.title;
+    const blink = (Math.floor(this.time * 2) % 2) === 0;
+    this.drawBackground(ctx);
+    // Ambient-Demo-Bugs hinter dem Overlay → dezent gedimmt, Screen lebt
+    for (const b of T.bugs) b.draw(ctx, this.time);
+    ctx.fillStyle = "rgba(13,17,23,0.80)"; ctx.fillRect(0, 0, this.W, this.H);
+
+    // Best oben rechts (weg aus dem Zentrum → ruhiger)
+    ctx.textAlign = "right"; ctx.font = "13px ui-monospace, monospace"; ctx.fillStyle = "#8b949e";
+    ctx.fillText(`Best: ${this.best}`, this.W - 18, 34);
+
+    // --- Titel + Tagline tippen sich ein ---
+    const ci = Math.floor(T.ci);
+    const headShown = T.head.slice(0, Math.min(ci, T.head.length)).join("");
+    const tagShown = T.tag.slice(0, Math.max(0, ci - T.head.length)).join("");
+    const headDone = ci >= T.head.length;
+    const allDone = ci >= T.head.length + T.tag.length;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 3);
     ctx.textAlign = "center";
-    ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
-    if ((Math.floor(this.time * 2) % 2) === 0) ctx.fillText("▶ $ npm run debug", this.W / 2, 448);
-    ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
-    ctx.fillText(`Best: ${this.best}`, this.W / 2, 476);
-    // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
-    if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
-      ctx.fillStyle = "#e5c07b"; ctx.font = "14px ui-monospace, monospace";
-      ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 492);
+    ctx.save();
+    ctx.fillStyle = "#ffd23f"; ctx.font = "40px ui-monospace, monospace";
+    ctx.shadowColor = "#ffd23f"; ctx.shadowBlur = 12 + pulse * 16;
+    ctx.fillText(headShown, cx, 128);
+    ctx.restore();
+    if (!headDone && blink) {                               // Tipp-Caret hinterm Titel
+      ctx.font = "40px ui-monospace, monospace";
+      ctx.fillStyle = "#ffd23f"; ctx.fillRect(cx + ctx.measureText(headShown).width / 2 + 4, 104, 16, 28);
     }
+    ctx.fillStyle = "#c9d1d9"; ctx.font = "16px ui-monospace, monospace";
+    ctx.fillText(tagShown, cx, 162);
+    if (headDone && !allDone && blink) {                   // Tipp-Caret hinter der Tagline
+      ctx.font = "16px ui-monospace, monospace";
+      ctx.fillStyle = "#c9d1d9"; ctx.fillRect(cx + ctx.measureText(tagShown).width / 2 + 3, 150, 9, 16);
+    }
+
+    // Rest erst nach fertigem Typewriter → ruhiger, gestaffelter Aufbau
+    if (allDone) {
+      const bw = 250, bh = 112, gap = 26, top = 196;
+      const lx = cx - bw - gap / 2, rx = cx + gap / 2;
+      this.drawCard(ctx, lx, top, bw, bh, "SO SPIELST DU");
+      this.drawCard(ctx, rx, top, bw, bh, "SPECIALS");
+      // linke Karte
+      ctx.textAlign = "left"; ctx.font = "14px ui-monospace, monospace"; ctx.fillStyle = "#c9d1d9";
+      ctx.fillText("beliebige Reihenfolge", lx + 16, top + 50);
+      ctx.fillText("Backspace = korrigieren", lx + 16, top + 76);
+      ctx.fillText("Esc = Pause", lx + 16, top + 102);
+      // rechte Karte: Command farbig, Beschreibung grau
+      const specs = [
+        ["/clear", "#58a6ff", "Feld leeren"],
+        ["/compact", "#7ee787", "Slow-Mo"],
+        ["/cost", "#ffd23f", "+1500 Bonus"],
+      ];
+      ctx.font = "14px ui-monospace, monospace";
+      for (let i = 0; i < specs.length; i++) {
+        const yy = top + 50 + i * 26;
+        ctx.fillStyle = specs[i][1]; ctx.fillText(specs[i][0], rx + 16, yy);
+        ctx.fillStyle = "#8b949e"; ctx.fillText(specs[i][2], rx + 120, yy);
+      }
+      // ⚡ Superpower (eine ruhige Zeile)
+      ctx.textAlign = "center"; ctx.font = "13px ui-monospace, monospace"; ctx.fillStyle = "#d2a8ff";
+      ctx.fillText("⚡ ×15 Combo → /ultrathink → Auto-Clear + Slow-Mo", cx, top + bh + 30);
+
+      // --- Start-Button mit blinkendem Terminal-Cursor ---
+      const btnW = 230, btnH = 42, bx = cx - btnW / 2, by = 380;
+      ctx.save();
+      ctx.fillStyle = "rgba(126,231,135,0.10)"; ctx.strokeStyle = "#7ee787"; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bx, by, btnW, btnH, 8); else ctx.rect(bx, by, btnW, btnH);
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+      const label = "▶ $ npm run debug";
+      ctx.textAlign = "center"; ctx.font = "18px ui-monospace, monospace"; ctx.fillStyle = "#7ee787";
+      ctx.fillText(label, cx, by + 27);
+      if (blink) {
+        ctx.font = "18px ui-monospace, monospace";
+        ctx.fillStyle = "#7ee787"; ctx.fillRect(cx + ctx.measureText(label).width / 2 + 5, by + 13, 11, 18);
+      }
+
+      if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+        ctx.textAlign = "center"; ctx.fillStyle = "#e5c07b"; ctx.font = "13px ui-monospace, monospace";
+        ctx.fillText("Am besten am Desktop mit Maus/Tastatur.", cx, 470);
+      }
+    }
+
+    // Gummiente bobbt unten — über dem Overlay, immer sichtbar
+    T.duck.draw(ctx);
   }
 
   drawGameOver(ctx) {
