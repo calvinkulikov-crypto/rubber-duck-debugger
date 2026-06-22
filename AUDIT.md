@@ -1,8 +1,27 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 20:30 (Wow-Polish-Sprint: T1–7 + 2 Playtest-Bugfixes, Playtest-Gate offen)
+**Letztes Update:** 2026-06-22 20:45 (Wow-Picks 1–3 gebaut+gepusht, Playtest-Gate offen)
 
-## AKTIV — WOW-POLISH-SPRINT (Strategie A, Branch `wow-polish`)
+## ⚠ BRANCH-KLARSTELLUNG (war im AUDIT verwirrend)
+`pivot-typing` ist bereits in `main` gemerged (`main` = Typing-Pivot). **`wow-polish` ist abgezweigt
+von `main` → enthält BEIDES: Typing-Pivot + Politur = SUPERSET = Ship-Kandidat.** `main` = Fallback.
+
+## AKTIV — WOW-PICKS (Branch `wow-polish`, je eigener Commit+Push)
+**Gebaut + verifiziert + gepusht (24/24 Tests, smoke ok, node --check sauber, headless useSkill-Test ok):**
+1. **Quack** — Ente quakt beim Bug-Kill (nasaler Bandpass-Sweep, Pitch ∝ Combo). `audio.js`/`onKill`.
+2. **Autocomplete-Ghost** — gelockter Command grau im Terminal vorgeschlagen. `drawTerminal`.
+3. **/ultrathink-Superpower** — Skill-Meter lädt pro Kill (`CONFIG.skill.max`=12), **Enter** löst
+   Screen-Clear + Slow-Mo + lila Flash aus; Boss verschont. `skillCharge/skillReady` (+2 Tests),
+   `useSkill()`, HUD-Ladebalken, `audio.ultrathink`, `main.js` Enter-Input.
+
+**NÄCHSTER SCHRITT = CALVIN PLAYTEST:** `python3 -m http.server 8000` → Cmd+Shift+R. Quack nicht
+zu oft? Ghost dezent+lesbar? Enter=/ultrathink mächtig genug, Boss fair? Konsole error/404-frei.
+Tuning via `CONFIG.skill`/`audio.js`-Gains. **Danach weitere Picks** (Boss-Arena-Alarm, Intro-Cohesion,
+Code-Char-Partikel, Boss-Drone). Nach Playtest: `merge main` → Redeploy `! npx vercel` → Abgabe.
+
+---
+
+## (erledigt) WOW-POLISH-SPRINT T1–7 + 2 Bugfixes — Branch `wow-polish`
 
 **Ziel:** Spiel optisch/akustisch/feel-mäßig auf „premium" + Wow-Momente, rein additiv. Pivot ist
 fertig + auf `main` gemerged + abgabefähig → `main` = Fallback, gebaut wird auf `wow-polish`.
