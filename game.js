@@ -111,6 +111,7 @@ export class Game {
   // Title betreten → Typewriter + Ambient neu starten (frischer Aufbau jedes Mal)
   enterTitle() {
     this.state = STATE.TITLE;
+    this.shake = 0;            // Death-Punch-Shake nicht ins Menü mitschleppen (sonst zittert es ewig)
     this.title.t = 0;
     this.title.ci = 0;
     this.title.quackT = 2.0;
@@ -386,12 +387,13 @@ export class Game {
       this.time += dt;                                                  // Cursor-Blink im Build-Log
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.2); // kurz wackeln → still
       if (this.shareCopied > 0) this.shareCopied = Math.max(0, this.shareCopied - dt);
-      this.sound?.stopDrone?.();
+      this.sound?.stopDrone?.(); this.sound?.stopMusic?.();
       return;
     }
-    if (this.state === STATE.TITLE) { this.time += dt; this.updateTitle(dt); this.sound?.stopDrone?.(); return; }
-    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); return; }  // Pause → eingefroren, Drone aus
+    if (this.state === STATE.TITLE) { this.time += dt; this.updateTitle(dt); this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); return; }
+    if (this.state !== STATE.PLAYING) { this.sound?.stopDrone?.(); this.sound?.stopMusic?.(); return; }  // Pause → eingefroren
     this.time += dt;
+    this.sound?.startMusic?.();    // Hintergrund-Melodie läuft während PLAYING (idempotent, restartet nach Pause)
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }
     if (this.typedPunch > 0) this.typedPunch = Math.max(0, this.typedPunch - dt);
     if (this.skillFlash > 0) this.skillFlash = Math.max(0, this.skillFlash - dt);

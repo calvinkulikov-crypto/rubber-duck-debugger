@@ -1,6 +1,6 @@
 // Synthetisierte Effekte. Kein Asset, kein 404. Bei fehlendem WebAudio: still.
 export class Sound {
-  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; }
+  constructor() { this.ctx = null; this.ok = false; this.muted = false; this.drone = null; this.music = null; }
   init() {
     if (this.ctx) return;
     try {
@@ -21,7 +21,51 @@ export class Sound {
     o.connect(g); g.connect(this.ctx.destination);
     o.start(t); o.stop(t + dur);
   }
-  setMuted(m) { this.muted = m; if (m) this.stopDrone(); }
+  setMuted(m) { this.muted = m; if (m) { this.stopDrone(); this.stopMusic(); } }
+
+  // Einzelne, zeitlich GEPLANTE Note (blip nutzt currentTime → reicht für den Sequencer nicht).
+  tone(freq, startT, dur, gain, type = "triangle") {
+    if (!this.ok) return;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, startT);
+    g.gain.setValueAtTime(0.0001, startT);
+    g.gain.exponentialRampToValueAtTime(gain, startT + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, startT + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(startT); o.stop(startT + dur + 0.03);
+  }
+
+  // Permanente Hintergrund-Melodie: sanfter Pentatonik-Arpeggio + Bass, leise (unter den Effekten).
+  // Lookahead-Scheduler (setTimeout + 0.25s Vorlauf) → robustes Timing trotz Frame-Jank/Tab-Wechsel.
+  startMusic() {
+    if (!this.ok || this.muted || this.music) return;
+    const NOTES = [220.00, 261.63, 329.63, 392.00, 329.63, 261.63, 196.00, 246.94,
+                   220.00, 261.63, 329.63, 261.63, 174.61, 220.00, 261.63, 220.00];
+    const STEP = 0.28;
+    this.music = { step: 0, next: this.ctx.currentTime + 0.08, timer: null };
+    const tick = () => {
+      const m = this.music;
+      if (!m) return;
+      if (this.muted) { this.stopMusic(); return; }
+      const now = this.ctx.currentTime;
+      if (m.next < now) m.next = now + 0.05;                       // Resync nach Jank/Tab-Wechsel
+      while (m.next < now + 0.25) {                                // 250ms Lookahead
+        const f = NOTES[m.step % NOTES.length];
+        this.tone(f, m.next, STEP * 0.9, 0.020, "triangle");      // weicher Arpeggio-Pluck
+        if (m.step % 4 === 0) this.tone(f / 2, m.next, STEP * 1.9, 0.016, "sine");  // Bass alle 4 Steps
+        m.next += STEP;
+        m.step += 1;
+      }
+      m.timer = setTimeout(tick, 60);
+    };
+    tick();
+  }
+  stopMusic() {
+    if (!this.music) return;
+    if (this.music.timer) clearTimeout(this.music.timer);
+    this.music = null;
+  }
   // Boss-Tension-Drone: tiefer, dumpfer Dauerton solang der Boss lebt (Game steuert Start/Stop).
   //  • Sägezahn-Grundton (55 Hz) + Sinus-Quinte, durch Lowpass → bedrohlich-dumpf
   //  • langsames Tremolo (0.7 Hz) → „atmende" Spannung
