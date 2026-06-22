@@ -40,11 +40,18 @@ Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen 
 - **MCP (Idee 4):** echtes MCP nicht machbar (statisch, kein Backend, Tech-Guardrail).
   Nur als Flavor/Naming denkbar (Gegner-/Power-Typ „MCP").
 
-**NÄCHSTER SCHRITT:** Plan + Premortem fertig — Ausführung. Plan:
-`docs/superpowers/plans/2026-06-22-claude-code-debugger-pivot.md` (Task 0–7, Pivot + Intro).
-Premortem: `...-pivot-premortem.md` (Verdikt REVISE→gepatcht: Branch-Strategie, handleChar-Normalisierung,
-weicherer Tippfehler). **Erst `git checkout -b pivot-typing` (Task 0), `main` bleibt Fallback.**
-**Deadline: Di 18:00 = morgen.** Falls Pivot zeitlich kippt → statisches T12-Game auf `main` ist abgabefähig.
+**STAND PIVOT:** Code **Task 0–6 fertig + gepusht auf Branch `pivot-typing`** (commands statt labels,
+Typing/Auto-Lock, Execute-Strahlen, Boss-Sequenz, Terminal-Prompt, Input-Remap, Intro „Hey Claude").
+Verifiziert: 13/13 mechanics-Tests grün, `node --check` alle Files, **headless Logik-Smoke** (Kill,
+Tippfehler bricht Combo aber hält Lock/Buffer, Boss-Sequenz seq→dead, Case/Space-Normalisierung).
+`main`-HEAD = unverändert statisches T12-Game = Fallback.
+
+**OFFEN = Task 7 (braucht Calvin/Browser):** 1) `python3 -m http.server 8000` → Playtest 3–4 Runden,
+v.a. ob Tank-Commands (`/refactor`) bei aktuellem `vy` tippbar sind → nur `config.js`-Werte justieren.
+2) Konsole error/404-frei (Intro→Play→Boss→GameOver→Restart). 3) Erst NACH bestandenem Playtest:
+`git checkout main && git merge --no-ff pivot-typing && git push origin main`. 4) `! npx vercel` (Login
+interaktiv, Calvin) → Live-URL == lokal → Repo+Live-Link in Abgabe-Thread.
+**Deadline: Di 18:00 = morgen.** Kippt der Pivot → `main` (statisch) ist abgabefähig.
 
 ## Stand
 - Setup ✓, Spec ✓, Plan (13 Tasks) ✓, Premortem (PROCEED) ✓.
