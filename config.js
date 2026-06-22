@@ -12,11 +12,12 @@ export const CONFIG = {
   },
   bugTypes: {
     standard: { r: 18, vy: 60,  hp: 1, points: 100, color: "#e06c75",
-      labels: ["off-by-one", "typo", "NaN", "undefined", "null ptr"] },
+      commands: ["/fix", "/test", "/lint", "/retry"] },
     fast:     { r: 12, vy: 130, hp: 1, points: 150, color: "#e5c07b",
-      labels: ["memory leak", "flaky test", "404"] },
+      commands: ["/ci", "/cd", "/rm", "/ls"] },
     tank:     { r: 26, vy: 45,  hp: 3, points: 300, color: "#c678dd",
-      labels: ["race condition", "deadlock", "segfault"] },
+      commands: ["/refactor", "/rollback", "/mutex", "/rebase"] },
   },
-  boss: { r: 48, vy: 30, hp: 12, points: 2000, color: "#56b6c2", label: "Heisenbug" },
+  boss: { r: 48, vy: 30, hp: 12, points: 2000, color: "#56b6c2",
+    label: "Heisenbug", commands: ["/triage", "/rollback", "/ship"] },
 };
