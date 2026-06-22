@@ -12,6 +12,20 @@ function unlockAudio() { sound.init(); sound.resume(); }
 window.addEventListener("mousedown", unlockAudio, { once: true });
 window.addEventListener("keydown", unlockAudio, { once: true });
 
+// Intro-Tipp-Sound: Klick während Tipp-Phase schaltet Audio frei ohne Intro zu überspringen.
+// Enter/Space überspringen weiterhin immer (intentionaler Skip).
+function unlockDuringIntro(e) {
+  if (game.state !== STATE.INTRO || game.intro.done) return;
+  // Intentionaler Skip → normal propagieren lassen
+  if (e.code === "Enter" || e.code === "Space") return;
+  // Beliebiger anderer Klick/Taste → Audio unlock, kein Skip
+  sound.init(); sound.resume();
+  e.stopImmediatePropagation();
+  e.preventDefault();
+}
+window.addEventListener("mousedown", unlockDuringIntro, { capture: true });
+window.addEventListener("keydown", unlockDuringIntro, { capture: true });
+
 function eventToCanvas(e) {
   const r = canvas.getBoundingClientRect();
   return {
