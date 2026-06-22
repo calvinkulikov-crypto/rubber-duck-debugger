@@ -25,7 +25,7 @@ export class Game {
         { who: "you",    text: "Warte – die Gummiente ist wirklich dabei?" },
         { who: "claude", text: "Wer debuggt schon ohne Gummiente? 🦆" },
       ],
-      li: 0, ci: 0, t: 0, cps: 38, done: false,
+      li: 0, ci: 0, t: 0, cps: 12, done: false,
     };
     // Title-Screen-Animation: Typewriter + bobbende Ente + Ambient-Bugs (lebendiger Startscreen)
     this.title = {
