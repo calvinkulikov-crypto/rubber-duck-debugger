@@ -378,7 +378,7 @@ export class Game {
       ctx.fillStyle = "#c9d1d9"; ctx.font = "34px ui-monospace, monospace";
       ctx.fillText("⏸ Pause", this.W / 2, this.H / 2 - 8);
       ctx.fillStyle = "#8b949e"; ctx.font = "16px ui-monospace, monospace";
-      ctx.fillText("P / Esc = weiter", this.W / 2, this.H / 2 + 24);
+      ctx.fillText("Esc = weiter", this.W / 2, this.H / 2 + 24);
     } else if (this.state === STATE.TITLE) {
       this.drawTitle(ctx);
     } else {

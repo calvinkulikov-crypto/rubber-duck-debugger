@@ -12,29 +12,24 @@ function unlockAudio() { sound.init(); sound.resume(); }
 window.addEventListener("mousedown", unlockAudio, { once: true });
 window.addEventListener("keydown", unlockAudio, { once: true });
 
-// CSS-Pixel → interne Canvas-Koordinaten (Canvas wird per CSS skaliert)
-function toCanvasX(clientX) {
-  const r = canvas.getBoundingClientRect();
-  return ((clientX - r.left) / r.width) * CONFIG.canvas.w;
-}
-
-canvas.addEventListener("mousemove", (e) => { game.input.mouseX = toCanvasX(e.clientX); });
 canvas.addEventListener("mousedown", () => {
-  if (game.state === STATE.PLAYING) game.input.firing = true;
-  else game.confirm();
+  if (game.state !== STATE.PLAYING) game.confirm();   // Klick = Start/Skip/Restart, NICHT feuern
 });
-window.addEventListener("mouseup", () => { game.input.firing = false; });
+
 window.addEventListener("keydown", (e) => {
-  if (e.code === "ArrowLeft") game.input.left = true;
-  if (e.code === "ArrowRight") game.input.right = true;
-  if (e.code === "Space") { e.preventDefault(); if (game.state === STATE.PLAYING) game.input.firing = true; else game.confirm(); }
-  if (e.code === "KeyR" && game.state === STATE.GAMEOVER) game.start();
-  if (e.code === "KeyP" || e.code === "Escape") game.togglePause();
-});
-window.addEventListener("keyup", (e) => {
-  if (e.code === "ArrowLeft") game.input.left = false;
-  if (e.code === "ArrowRight") game.input.right = false;
-  if (e.code === "Space") game.input.firing = false;
+  if (e.code === "Escape") { e.preventDefault(); game.togglePause(); return; }
+  if (game.state !== STATE.PLAYING) {
+    // Auf Intro/Title/GameOver: Enter/Space/Buchstabe = los
+    if (e.code === "Enter" || e.code === "Space" || e.key.length === 1) { e.preventDefault(); game.confirm(); }
+    return;
+  }
+  // PLAYING: Tippen
+  if (e.code === "Backspace") { e.preventDefault(); game.handleBackspace(); return; }
+  // ein druckbares Zeichen (inkl. "/") → Buffer; Modifier-Kombis ignorieren
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    game.handleChar(e.key);
+  }
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && game.state === STATE.PLAYING) game.state = STATE.PAUSED;
