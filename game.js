@@ -287,6 +287,7 @@ export class Game {
 
   gameOver() {
     this.state = STATE.GAMEOVER;
+    this.shake = 0.5;            // crisp Death-Punch → klingt im GAMEOVER-Update kurz aus
     this.newBest = this.score > this.best;
     if (this.newBest) { this.best = this.score; this.saveBest(); }
     this.sound?.gameOver();
@@ -314,6 +315,11 @@ export class Game {
 
   update(dt) {
     if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
+    if (this.state === STATE.GAMEOVER) {
+      this.time += dt;                                                  // Cursor-Blink im Build-Log
+      if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.2); // kurz wackeln → still
+      return;
+    }
     if (this.state !== STATE.PLAYING) return;
     this.time += dt;
     if (this.hitstop > 0) { this.hitstop = Math.max(0, this.hitstop - dt); dt *= 0.1; }

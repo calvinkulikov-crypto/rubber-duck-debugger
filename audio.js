@@ -29,27 +29,39 @@ export class Sound {
   }
   fire()      { this.blip(680, 0.08, "square", 0.04, 880); }
   pop()       { this.blip(420, 0.12, "triangle", 0.07, 120); }
-  // Gummiente quakt beim Bug-Kill: lauter Sägezahn durch Lowpass, Tonhöhe rauf-dann-runter
-  // ("qu-ack"). Grundfrequenz steigt mit der Combo → "quak-quak-quak"-Crescendo beim Chainen.
-  // Gain bewusst hoch (0.14), damit der Quack über gleichzeitiges fire()+keyClick() durchkommt.
+  // Gummiente quakt beim Bug-Kill. Aufbau für echten "Quack"-Charakter:
+  //  • zwei leicht verstimmte Sägezähne → rauer, "rotziger" Grundton (kein dünner Sinus)
+  //  • Pitch-Kontur kurz rauf ("qu") dann runter ("ack")
+  //  • Bandpass-Formant sweept runter → nasaler Vokal (offen→geschlossen)
+  //  • schnelles Tremolo auf der Amplitude → typisches Enten-Schnattern
+  // Grundton steigt mit Combo → "quak-quak-quak"-Crescendo. Gain hoch genug über fire/keyClick.
   quack(combo = 0) {
     if (!this.ok || this.muted) return;
     const t = this.ctx.currentTime;
-    const base = 260 + Math.min(combo, 14) * 12;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
+    const dur = 0.22;
+    const base = 235 + Math.min(combo, 14) * 10;
+    const o1 = this.ctx.createOscillator(); o1.type = "sawtooth";
+    const o2 = this.ctx.createOscillator(); o2.type = "sawtooth"; o2.detune.value = 22;
+    for (const o of [o1, o2]) {
+      o.frequency.setValueAtTime(base, t);
+      o.frequency.linearRampToValueAtTime(base * 1.65, t + 0.045);    // "qu-"
+      o.frequency.exponentialRampToValueAtTime(base * 0.72, t + dur); // "-ack" runter
+    }
     const f = this.ctx.createBiquadFilter();
-    f.type = "lowpass"; f.frequency.value = 1800; f.Q.value = 6;    // warm + präsent statt dünn
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(base * 1.5, t);
-    o.frequency.linearRampToValueAtTime(base * 1.9, t + 0.05);      // "qu-" rauf
-    o.frequency.linearRampToValueAtTime(base * 0.8, t + 0.18);      // "-ack" runter
+    f.type = "bandpass"; f.Q.value = 4.5;
+    f.frequency.setValueAtTime(1500, t);
+    f.frequency.exponentialRampToValueAtTime(650, t + dur);           // Formant schließt
+    const g = this.ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.14, t + 0.02);
-    g.gain.linearRampToValueAtTime(0.10, t + 0.12);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-    o.connect(f); f.connect(g); g.connect(this.ctx.destination);
-    o.start(t); o.stop(t + 0.22);
+    g.gain.exponentialRampToValueAtTime(0.13, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    // Tremolo-Schnatter: Sinus-LFO addiert sich auf die Haupt-Gain
+    const lfo = this.ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 30;
+    const lfoDepth = this.ctx.createGain(); lfoDepth.gain.value = 0.04;
+    lfo.connect(lfoDepth); lfoDepth.connect(g.gain);
+    o1.connect(f); o2.connect(f); f.connect(g); g.connect(this.ctx.destination);
+    o1.start(t); o2.start(t); lfo.start(t);
+    o1.stop(t + dur); o2.stop(t + dur); lfo.stop(t + dur);
   }
   tankHit()   { this.blip(160, 0.08, "sawtooth", 0.05); }
   bossHit()   { this.blip(240, 0.1, "sawtooth", 0.06, 90); }
