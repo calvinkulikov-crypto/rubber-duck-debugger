@@ -42,3 +42,14 @@ export const pickTarget = (bugs, char) => {
   }
   return best;
 };
+
+// Ziel-Wahl per Buffer: tiefster lebender Bug, dessen command mit buffer beginnt; -1 wenn keiner.
+export const pickTargetByBuffer = (bugs, buffer) => {
+  let best = -1, bestY = -Infinity;
+  for (let i = 0; i < bugs.length; i++) {
+    const b = bugs[i];
+    if (b.dead || !b.command) continue;
+    if (b.command.startsWith(buffer) && b.y > bestY) { bestY = b.y; best = i; }
+  }
+  return best;
+};

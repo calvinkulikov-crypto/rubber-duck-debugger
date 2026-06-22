@@ -4,7 +4,7 @@ import {
   clamp, comboMultiplier, scoreForKill,
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug,
-  matchCommand, pickTarget,
+  matchCommand, pickTarget, pickTargetByBuffer,
 } from "../mechanics.js";
 
 test("clamp begrenzt nach unten/oben", () => {
@@ -78,4 +78,23 @@ test("pickTarget: kein passender Bug → -1", () => {
 test("pickTarget: tote Bugs werden ignoriert", () => {
   const bugs = [{ command: "/fix", y: 400, dead: true }, { command: "/fix", y: 100, dead: false }];
   assert.equal(pickTarget(bugs, "/"), 1);
+});
+
+test("pickTargetByBuffer: tiefster Bug dessen command mit buffer beginnt", () => {
+  const bugs = [
+    { command: "/fix",      y: 100, dead: false },
+    { command: "/refactor", y: 300, dead: false },
+    { command: "/fix",      y: 250, dead: false },
+  ];
+  assert.equal(pickTargetByBuffer(bugs, "/fi"), 2);   // y=250 tiefer als y=100, /refactor passt nicht
+  assert.equal(pickTargetByBuffer(bugs, "/ref"), 1);  // nur /refactor passt
+});
+
+test("pickTargetByBuffer: kein passender Bug → -1", () => {
+  assert.equal(pickTargetByBuffer([{ command: "/fix", y: 100, dead: false }], "/test"), -1);
+});
+
+test("pickTargetByBuffer: tote Bugs werden ignoriert", () => {
+  const bugs = [{ command: "/fix", y: 400, dead: true }, { command: "/fix", y: 100, dead: false }];
+  assert.equal(pickTargetByBuffer(bugs, "/fix"), 1);
 });

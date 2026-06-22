@@ -3,7 +3,7 @@ import { Duck, Beam, Bug, Boss, Particle, FloatingText } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
-  matchCommand, pickTarget,
+  pickTargetByBuffer,
 } from "./mechanics.js";
 
 export const STATE = { INTRO: "INTRO", TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
@@ -107,22 +107,25 @@ export class Game {
 
   handleChar(ch) {
     if (this.state !== STATE.PLAYING) return;
-    ch = ch.toLowerCase();          // CapsLock egal (Commands sind lowercase)
-    if (ch === " ") return;         // Space ist kein Command-Zeichen → ignorieren, nicht als Fehler werten
-    // verwaistes Ziel (tot/entkommen/weg) → Lock fallen lassen
+    ch = ch.toLowerCase();
+    if (ch === " ") return;
+    // verwaistes Ziel → Lock fallen lassen
     if (this.target && (this.target.dead || this.target.escaped || !this.bugs.includes(this.target))) {
       this.releaseTarget();
     }
-    // Kein Ziel: per erstem Zeichen das tiefste passende Bug locken
-    if (!this.target) {
-      const idx = pickTarget(this.bugs, ch);
-      if (idx < 0) return;              // kein passender Bug → Eingabe verpufft
-      this.target = this.bugs[idx];
-      this.typed = "";
+    // Targeting folgt dem vollen Buffer → Spieler wählt Bug durch den Command den er tippt
+    const candidate = this.typed + ch;
+    const idx = pickTargetByBuffer(this.bugs, candidate);
+    if (idx < 0) {
+      if (this.typed.length > 0) this.syntaxError();  // teilweiser Command, kein Match → Fehler
+      return;
     }
-    const r = matchCommand(this.target.command, this.typed, ch);
-    if (!r.ok) { this.syntaxError(); return; }
-    this.typed = r.buffer;
+    const newTarget = this.bugs[idx];
+    if (this.target && this.target !== newTarget) {
+      this.target.typedLen = 0;  // altes Ziel-Fortschritts-Label zurücksetzen
+    }
+    this.target = newTarget;
+    this.typed = candidate;
     this.target.typedLen = this.typed.length;
     // pro korrektem Zeichen ein Execute-Strahl von der Ente zum Ziel
     const m = this.duck.muzzle();
@@ -130,7 +133,7 @@ export class Game {
     this.duck.triggerRecoil();
     this.fireCd = CONFIG.beam.cooldown;
     this.sound?.fire();
-    if (r.complete) this.executeTarget();
+    if (candidate === this.target.command) this.executeTarget();
   }
 
   // Command fertig getippt: Boss schreitet in der Sequenz voran, sonst Kill.
@@ -389,7 +392,7 @@ export class Game {
     ctx.fillText("Erklär dem Entchen deinen Bug.", this.W / 2, 230);
     ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
     ctx.fillText("Tippe die /commands, die auf den Bugs stehen   •   Backspace = korrigieren", this.W / 2, 300);
-    ctx.fillText("Erstes Zeichen lockt den tiefsten Bug. Tippfehler bricht die Combo.", this.W / 2, 326);
+    ctx.fillText("Tippe den /command des Bugs den du killen willst. Tippfehler bricht die Combo.", this.W / 2, 326);
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
     ctx.fillText("Klick zum Start", this.W / 2, 400);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
