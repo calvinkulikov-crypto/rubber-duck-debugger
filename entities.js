@@ -256,6 +256,44 @@ export class Particle {
   }
 }
 
+// Fallendes Code-Zeichen beim Bug-Kill: der Bug „zerfällt" sichtbar in Quelltext-Trümmer.
+// Erst nach oben/außen geschleudert, dann zieht Gravitation es runter → es regnet Code.
+export class CodeBit {
+  static GLYPHS = ["{", "}", "(", ")", ";", "/", "<", ">", "=", "0", "1", "*", "+", "$", "_", "λ"];
+  static COLORS = ["#7ee787", "#79c0ff", "#d2a8ff", "#ffd23f", "#ff7b72"];   // Syntax-Palette
+  constructor(x, y) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 40 + Math.random() * 130;
+    this.x = x; this.y = y;
+    this.vx = Math.cos(a) * sp * 0.65;
+    this.vy = Math.sin(a) * sp - 130;                                   // Aufwärts-Bias → Bogen
+    this.char = CodeBit.GLYPHS[(Math.random() * CodeBit.GLYPHS.length) | 0];
+    this.color = CodeBit.COLORS[(Math.random() * CodeBit.COLORS.length) | 0];
+    this.size = 12 + ((Math.random() * 7) | 0);
+    this.rot = Math.random() * Math.PI * 2;
+    this.vr = (Math.random() * 2 - 1) * 7;                              // Drehung im Flug
+    this.life = 0.8 + Math.random() * 0.55;
+    this.max = this.life; this.dead = false;
+  }
+  update(dt) {
+    this.x += this.vx * dt; this.y += this.vy * dt; this.vy += 520 * dt;  // Gravitation
+    this.vx *= 0.99;
+    this.rot += this.vr * dt;
+    this.life -= dt; if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life / this.max);
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.fillStyle = this.color;
+    ctx.font = `bold ${this.size}px ui-monospace, monospace`;
+    ctx.textAlign = "center";
+    ctx.fillText(this.char, 0, 0);
+    ctx.restore();
+  }
+}
+
 export class Ring {
   constructor(x, y, color) {
     this.x = x; this.y = y; this.color = color;

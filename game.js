@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { Duck, Beam, Bug, Boss, Particle, FloatingText, Ring } from "./entities.js";
+import { Duck, Beam, Bug, Boss, Particle, CodeBit, FloatingText, Ring } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
@@ -36,6 +36,7 @@ export class Game {
     this.bugs = [];
     this.beams = [];
     this.particles = [];
+    this.codeBits = [];        // fallende Code-Zeichen beim Kill (Bug zerfällt in Quelltext)
     this.texts = [];
     this.shake = 0;
     this.duck = new Duck();
@@ -209,6 +210,9 @@ export class Game {
     this.score += scoreForKill(bug.points, this.multiplier());
     const burst = bug.isBoss ? 28 : 10;
     for (let i = 0; i < burst; i++) this.particles.push(new Particle(bug.x, bug.y, bug.color));
+    // Bug zerfällt in fallende Code-Zeichen (on-theme „Bug wird zu Quelltext")
+    const bits = bug.isBoss ? 22 : 9;
+    for (let i = 0; i < bits; i++) this.codeBits.push(new CodeBit(bug.x, bug.y));
     this.texts.push(new FloatingText(bug.x, bug.y, bug.label, "#c9d1d9"));
     const mult = this.multiplier();
     if (mult > 1) this.texts.push(new FloatingText(bug.x, bug.y - 18, `×${mult}`, "#7ee787"));
@@ -374,8 +378,10 @@ export class Game {
 
     // Juice: Partikel/Texte tickern, Screen-Shake abklingen
     for (const p of this.particles) p.update(dt);
+    for (const c of this.codeBits) c.update(dt);
     for (const t of this.texts) t.update(dt);
     this.particles = this.particles.filter((p) => !p.dead);
+    this.codeBits = this.codeBits.filter((c) => !c.dead);
     this.texts = this.texts.filter((t) => !t.dead);
     for (const r of this.rings) r.update(dt);
     this.rings = this.rings.filter((r) => !r.dead);
@@ -538,6 +544,7 @@ export class Game {
     for (const b of this.beams) b.draw(ctx);
     this.duck.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
+    for (const c of this.codeBits) c.draw(ctx);
     for (const r of this.rings) r.draw(ctx);
     for (const t of this.texts) t.draw(ctx);
     this.drawHud(ctx);
