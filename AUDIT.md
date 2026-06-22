@@ -1,6 +1,6 @@
 # AUDIT — Rubber Duck Debugger
 
-**Letztes Update:** 2026-06-22 (Pivot-Brainstorming — Design vorgelegt, Freigabe offen)
+**Letztes Update:** 2026-06-22 (Pivot FREIGEGEBEN — Plan-Bau startet; Intro-Idee in Scope)
 
 ## AKTIVER PIVOT — „Claude-Code Debugger" (Command-Typing statt Shooter)
 
@@ -9,7 +9,9 @@ Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen 
 1. Richtung = **„Erklären statt Schießen"** (Mechanik weg vom Shooter).
 2. Tipp-Inhalt = **„Claude-Code-Flavor, keine API"** (rein statisch, kein Backend, kein Kostenrisiko).
 
-**Design (vorgelegt, Freigabe vom User noch offen — HARD-GATE: kein Spec/Code vor Approval):**
+**FREIGABE ERTEILT 2026-06-22** — Pivot wird gebaut. Zusätzlich in Scope: **Intro „Hey Claude"** (s.u.).
+
+**Design (freigegeben):**
 - *Mechanik:* Bugs sinken mit **Slash-Command als Label** (`/fix /test /revert /refactor` …). Spieler
   **tippt den Command** → erster Buchstabe lockt nächsten passenden Bug (ZType-auto-lock), jeder
   korrekte Buchstabe feuert Execute-Strahl, Command fertig = Bug platzt. Tippfehler = „syntax error"
@@ -26,10 +28,23 @@ Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen 
   (teleportiert zwischen Commands).
 - *Lock-Default:* auto-lock-nächster passender Bug (anfängerfreundlich). Alt: frei-zielen/blind tippen.
 - *Scope:* additiver Branch, statisches T1–T12-Game bleibt Fallback. ~6–8 Tasks.
+- *Intro (Idee 1, IN SCOPE):* Title-Screen als getippter Claude-Code-Dialog — User-Zeile
+  „Hey Claude, lass uns ein Spiel bauen" tippt sich selbst, Claude-Antwort-Zeile folgt, dann
+  startet Game. Reine Render-/Timing-Sache, keine neue Mechanik. Skippbar (Taste/Klick).
 
-**NÄCHSTER SCHRITT nach /clear:** User-Freigabe des Designs einholen → dann Spec nach
-`docs/superpowers/specs/` (brainstorming-Flow) → writing-plans → premortem (≥50 Zeilen) → executing-plans.
-**Deadline rückt: Di 18:00 = morgen.** Falls Pivot zeitlich kippt → statisches T12-Game ist abgabefähig.
+## Backlog — nach Abgabe (Di 18:00), NICHT vor Deadline anfassen
+- **On-Theme-Politur (Idee 2, ohne Wasser):** Syntax-Farben, Scanlines/CRT, Glow, Tiefe.
+  Gewässer-BG verworfen — clasht mit IDE/Terminal-Theme = Alleinstellungsmerkmal.
+- **Skill-Trigger (Idee 3):** auslösbare „Superpower" als In-Game-Power (z.B. Screen-Clear/
+  Slow-Mo). Neue Mechanik → erst nach Abgabe.
+- **MCP (Idee 4):** echtes MCP nicht machbar (statisch, kein Backend, Tech-Guardrail).
+  Nur als Flavor/Naming denkbar (Gegner-/Power-Typ „MCP").
+
+**NÄCHSTER SCHRITT:** Plan + Premortem fertig — Ausführung. Plan:
+`docs/superpowers/plans/2026-06-22-claude-code-debugger-pivot.md` (Task 0–7, Pivot + Intro).
+Premortem: `...-pivot-premortem.md` (Verdikt REVISE→gepatcht: Branch-Strategie, handleChar-Normalisierung,
+weicherer Tippfehler). **Erst `git checkout -b pivot-typing` (Task 0), `main` bleibt Fallback.**
+**Deadline: Di 18:00 = morgen.** Falls Pivot zeitlich kippt → statisches T12-Game auf `main` ist abgabefähig.
 
 ## Stand
 - Setup ✓, Spec ✓, Plan (13 Tasks) ✓, Premortem (PROCEED) ✓.
