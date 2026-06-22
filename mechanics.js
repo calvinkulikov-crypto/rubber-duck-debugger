@@ -53,3 +53,26 @@ export const pickTargetByBuffer = (bugs, buffer) => {
   }
   return best;
 };
+
+// Zerlegt eine Code-Zeile in farbige Tokens (GitHub-Dark-Palette). Rein → unit-testbar.
+// Join aller token.text ergibt exakt die Eingabe (inkl. Whitespace).
+export function tokenizeLine(line) {
+  const KEYWORDS = ["function", "while", "if", "else", "return", "const", "let", "var", "new", "for"];
+  const re = /(\/\/.*$)|("[^"]*"|'[^']*'|`[^`]*`)|([A-Za-z_$][\w$]*)|(\d+)|(\s+)|([^\w\s])/g;
+  const tokens = [];
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    if (m[1]) tokens.push({ text: m[1], color: "#8b949e" });            // Kommentar
+    else if (m[2]) tokens.push({ text: m[2], color: "#a5d6ff" });       // String
+    else if (m[3]) {
+      if (KEYWORDS.includes(m[3])) tokens.push({ text: m[3], color: "#ff7b72" });
+      else {
+        const after = line.slice(re.lastIndex);                         // Funktionsname wenn "(" folgt
+        tokens.push({ text: m[3], color: /^\s*\(/.test(after) ? "#d2a8ff" : "#c9d1d9" });
+      }
+    } else if (m[4]) tokens.push({ text: m[4], color: "#79c0ff" });     // Zahl
+    else if (m[5]) tokens.push({ text: m[5], color: "#c9d1d9" });       // Whitespace (zeichnet nichts)
+    else if (m[6]) tokens.push({ text: m[6], color: "#c9d1d9" });       // Satzzeichen/Operator
+  }
+  return tokens;
+}

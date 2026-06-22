@@ -3,7 +3,7 @@ import { Duck, Beam, Bug, Boss, Particle, FloatingText } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
-  pickTargetByBuffer,
+  pickTargetByBuffer, tokenizeLine,
 } from "./mechanics.js";
 
 export const STATE = { INTRO: "INTRO", TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
@@ -317,10 +317,21 @@ export class Game {
       ctx.fillStyle = "#6e7681";
       ctx.fillText(String(i + 1).padStart(2, " "), 12, y);
       const isBad = this.corrupted.includes(i);
-      ctx.fillStyle = isBad ? "#f85149" : "#3b4048";          // korrumpiert = rot
-      let line = this.codeLines[i];
-      if (isBad) line = line.replace(/[a-z]/gi, (c) => (((i + y) % 3) ? c : "▓"));  // glitch
-      ctx.fillText(line, 56, y);
+      if (isBad) {
+        let line = this.codeLines[i].replace(/[a-z]/gi, (c) => (((i + y) % 3) ? c : "▓"));
+        ctx.fillStyle = "#f85149";
+        ctx.fillText(line, 56, y);                          // korrumpiert = rot, Vorrang
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.55;                             // gedimmt → bleibt Hintergrund
+        let x = 56;
+        for (const tok of tokenizeLine(this.codeLines[i])) {
+          ctx.fillStyle = tok.color;
+          ctx.fillText(tok.text, x, y);
+          x += ctx.measureText(tok.text).width;
+        }
+        ctx.restore();
+      }
     }
     // Editor-Boden-Linie
     ctx.strokeStyle = "#30363d"; ctx.lineWidth = 2;

@@ -5,6 +5,7 @@ import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug,
   matchCommand, pickTarget, pickTargetByBuffer,
+  tokenizeLine,
 } from "../mechanics.js";
 import { Bug } from "../entities.js";
 import { CONFIG } from "../config.js";
@@ -127,4 +128,25 @@ test("pickTargetByBuffer trennt /c-Spezial-Commands sauber", () => {
   assert.equal(pickTargetByBuffer(bugs, "/cl"), 0);  // nur /clear
   assert.equal(pickTargetByBuffer(bugs, "/com"), 1); // nur /compact
   assert.equal(pickTargetByBuffer(bugs, "/cos"), 2); // nur /cost
+});
+
+test("tokenizeLine reconstructs the original line exactly", () => {
+  const line = "const debugDuck = new Duck();";
+  const toks = tokenizeLine(line);
+  assert.equal(toks.map((t) => t.text).join(""), line);
+});
+
+test("tokenizeLine colors keywords and comments", () => {
+  const kw = tokenizeLine("  return clean;");
+  const ret = kw.find((t) => t.text === "return");
+  assert.equal(ret.color, "#ff7b72");
+  const c = tokenizeLine("// TODO: more tests");
+  assert.equal(c[0].text, "// TODO: more tests");
+  assert.equal(c[0].color, "#8b949e");
+});
+
+test("tokenizeLine flags function-call names", () => {
+  const toks = tokenizeLine("debugDuck.quack();");
+  const quack = toks.find((t) => t.text === "quack");
+  assert.equal(quack.color, "#d2a8ff");
 });
