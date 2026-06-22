@@ -3,19 +3,28 @@ import { Duck, Beam, Bug, Boss, Particle, FloatingText } from "./entities.js";
 import {
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug, comboMultiplier, scoreForKill,
+  pickTargetByBuffer,
 } from "./mechanics.js";
 
-export const STATE = { TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
+export const STATE = { INTRO: "INTRO", TITLE: "TITLE", PLAYING: "PLAYING", PAUSED: "PAUSED", GAMEOVER: "GAMEOVER" };
 
 export class Game {
   constructor(sound = null) {
     this.W = CONFIG.canvas.w;
     this.H = CONFIG.canvas.h;
     this.sound = sound;
-    this.state = STATE.TITLE;
+    this.state = STATE.INTRO;
     this.input = { mouseX: this.W / 2, firing: false, left: false, right: false };
     this.best = this.loadBest();
     this.reset();
+    // Intro-Dialog (bewusst NICHT in reset() → Restart überspringt das Intro)
+    this.intro = {
+      lines: [
+        { who: "you",    text: "Hey Claude, lass uns ein Spiel bauen." },
+        { who: "claude", text: "Klar. Bug-Debugger mit Gummiente: tipp die /commands, kill die Bugs, rette den Build. 🦆" },
+      ],
+      li: 0, ci: 0, t: 0, cps: 38, holdAfter: 1.1, holdT: 0,
+    };
   }
 
   reset() {
@@ -31,11 +40,14 @@ export class Game {
     this.shake = 0;
     this.duck = new Duck();
     this.fireCd = 0;
+    this.typed = "";          // live getippter Command
+    this.target = null;       // gelockter Bug/Boss
     this.time = 0;
     this.toSpawn = 0;          // verbleibendes Bug-Budget der aktuellen Welle
     this.spawnTimer = 0;
     this.banner = 0;           // > 0 = Wellen-Banner sichtbar, kein Spawn
     this.speedMult = 1;
+    this.slowmo = 0;           // > 0 = Slow-Mo aktiv (/compact-Effekt), skaliert Bug-Tempo
     this.bossPending = false;
     this.codeLines = [
       "function fixBug(duck) {", "  while (bugs.length) {", "    duck.explain(bug);",
@@ -54,8 +66,89 @@ export class Game {
 
   // Klick/Taste-"bestätigen" je nach State
   confirm() {
+    if (this.state === STATE.INTRO) { this.finishIntro(); return; }
     if (this.state === STATE.TITLE) this.start();
     else if (this.state === STATE.GAMEOVER) this.start();
+  }
+
+  updateIntro(dt) {
+    const it = this.intro;
+    const line = it.lines[it.li];
+    if (it.ci < line.text.length) {
+      it.t += dt;
+      while (it.t >= 1 / it.cps && it.ci < line.text.length) { it.t -= 1 / it.cps; it.ci += 1; }
+    } else if (it.li < it.lines.length - 1) {
+      it.li += 1; it.ci = 0; it.t = 0;       // nächste Zeile
+    } else {
+      it.holdT += dt;
+      if (it.holdT >= it.holdAfter) this.finishIntro();
+    }
+  }
+  finishIntro() { this.state = STATE.TITLE; }
+
+  releaseTarget() {
+    if (this.target) this.target.typedLen = 0;
+    this.target = null;
+    this.typed = "";
+  }
+
+  // Tippfehler: Combo bricht + Glitch/Buzz, aber Lock & Buffer BLEIBEN (nur das Falsch-Zeichen verpufft).
+  syntaxError() {
+    this.combo = 0;
+    this.shake = Math.max(this.shake, 0.18);
+    this.sound?.damage();
+  }
+
+  handleBackspace() {
+    if (!this.target) return;
+    this.typed = this.typed.slice(0, -1);
+    this.target.typedLen = this.typed.length;
+    if (this.typed.length === 0) this.releaseTarget();
+  }
+
+  handleChar(ch) {
+    if (this.state !== STATE.PLAYING) return;
+    ch = ch.toLowerCase();
+    if (ch === " ") return;
+    // verwaistes Ziel → Lock fallen lassen
+    if (this.target && (this.target.dead || this.target.escaped || !this.bugs.includes(this.target))) {
+      this.releaseTarget();
+    }
+    // Targeting folgt dem vollen Buffer → Spieler wählt Bug durch den Command den er tippt
+    const candidate = this.typed + ch;
+    const idx = pickTargetByBuffer(this.bugs, candidate);
+    if (idx < 0) {
+      if (this.typed.length > 0) this.syntaxError();  // teilweiser Command, kein Match → Fehler
+      return;
+    }
+    const newTarget = this.bugs[idx];
+    if (this.target && this.target !== newTarget) {
+      this.target.typedLen = 0;  // altes Ziel-Fortschritts-Label zurücksetzen
+    }
+    this.target = newTarget;
+    this.typed = candidate;
+    this.target.typedLen = this.typed.length;
+    // pro korrektem Zeichen ein Execute-Strahl von der Ente zum Ziel
+    const m = this.duck.muzzle();
+    this.beams.push(new Beam(m.x, m.y, this.target.x, this.target.y));
+    this.duck.triggerRecoil();
+    this.fireCd = CONFIG.beam.cooldown;
+    this.sound?.fire();
+    if (candidate === this.target.command) this.executeTarget();
+  }
+
+  // Command fertig getippt: Boss schreitet in der Sequenz voran, sonst Kill.
+  executeTarget() {
+    const t = this.target;
+    if (t.isBoss && t.seq < t.commands.length - 1) {
+      t.advance();                 // nächster Command, teleport
+      this.sound?.bossHit();
+      this.releaseTarget();
+      return;
+    }
+    t.dead = true;
+    this.onKill(t);
+    this.releaseTarget();
   }
 
   startWave() {
@@ -80,6 +173,13 @@ export class Game {
   }
 
   spawnBug() {
+    // seltener Spezial-Bug (deterministisch-pseudo) → Effekt-Bug aus CONFIG.specials
+    if (((this.time * 271) % 1) < CONFIG.specialChance && CONFIG.specials.length) {
+      const s = CONFIG.specials[Math.floor((this.time * 53) % CONFIG.specials.length)];
+      const x = s.r + ((this.time * 733) % (CONFIG.canvas.w - 2 * s.r));
+      this.bugs.push(new Bug(null, x, this.speedMult, this.time, s));
+      return;
+    }
     const roll = (this.time * 131) % 1;             // deterministisch-pseudo
     const key = roll < 0.18 ? "tank" : roll < 0.5 ? "fast" : "standard";
     const t = CONFIG.bugTypes[key];
@@ -100,6 +200,30 @@ export class Game {
     if (mult > 1) this.texts.push(new FloatingText(bug.x, bug.y - 18, `×${mult}`, "#7ee787"));
     if (bug.isBoss) this.shake = Math.max(this.shake, 0.3);
     this.sound?.[bug.isBoss ? "bossHit" : "pop"]();
+    if (bug.special) this.applySpecial(bug.effect, bug);
+  }
+
+  // Spezial-Bug-Effekte: Claude-Code-Commands mit Spielfeld-Wirkung.
+  applySpecial(effect, src) {
+    if (effect === "clear") {
+      // /clear leert den Kontext → alle anderen lebenden Nicht-Boss-Bugs poppen (Panik-Knopf)
+      for (const b of this.bugs) {
+        if (b === src || b.dead || b.escaped || b.isBoss) continue;
+        b.dead = true;
+        for (let i = 0; i < 6; i++) this.particles.push(new Particle(b.x, b.y, b.color));
+      }
+      this.shake = Math.max(this.shake, 0.3);
+      this.texts.push(new FloatingText(this.W / 2, this.H / 2, "CONTEXT CLEARED", "#58a6ff"));
+      this.sound?.waveClear?.();
+    } else if (effect === "slowmo") {
+      // /compact → Verschnaufpause, Bugs in Zeitlupe
+      this.slowmo = CONFIG.slowmoTime;
+      this.texts.push(new FloatingText(this.W / 2, 150, "/compact — SLOW-MO", "#7ee787"));
+    } else if (effect === "bonus") {
+      // /cost → Token-Bonus, Score-Windfall
+      this.score += CONFIG.bonusScore;
+      this.texts.push(new FloatingText(src.x, src.y - 20, `+${CONFIG.bonusScore}`, "#ffd23f"));
+    }
   }
 
   onEscape(bug) {
@@ -126,52 +250,38 @@ export class Game {
   saveBest() { try { localStorage.setItem("rdd_best", String(this.best)); } catch { /* privater modus: nur in-memory */ } }
 
   update(dt) {
+    if (this.state === STATE.INTRO) { this.time += dt; this.updateIntro(dt); return; }
     if (this.state !== STATE.PLAYING) return;
     this.time += dt;
     if (this.wave === 0) this.startWave();          // erste Welle starten
 
+    if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt);
+    const ts = this.slowmo > 0 ? CONFIG.slowmoScale : 1;   // Slow-Mo skaliert Bug-Tempo + Spawn
+
     if (this.banner > 0) {
       this.banner -= dt;
     } else if (this.toSpawn > 0) {
-      this.spawnTimer -= dt;
+      this.spawnTimer -= dt * ts;
       if (this.spawnTimer <= 0) { this.spawnBug(); this.toSpawn -= 1; this.spawnTimer = this.spawnInterval(); }
     }
 
+    // Ente zielt automatisch: gleitet unter das gelockte Ziel, sonst zur Mitte
+    this.input.mouseX = this.target ? this.target.x : this.W / 2;
     this.duck.update(dt, this.input);
 
-    // Feuern (Autofire bei gehaltenem Button/Space, per Cooldown gedrosselt)
+    // Beams sind rein kosmetisch (in handleChar gespawnt) → nur fortbewegen
     this.fireCd -= dt;
-    if (this.input.firing && this.fireCd <= 0) {
-      const m = this.duck.muzzle();
-      this.beams.push(new Beam(m.x, m.y));
-      this.duck.triggerRecoil();
-      this.fireCd = CONFIG.beam.cooldown;
-      this.sound?.fire();
-    }
     for (const b of this.beams) b.update(dt);
-
-    for (const bug of this.bugs) bug.update(dt, this.time);
-
-    // Beam × Bug
-    for (const beam of this.beams) {
-      if (beam.dead) continue;
-      for (const bug of this.bugs) {
-        if (bug.dead) continue;
-        if (beamHitsBug(beam, bug)) {
-          beam.dead = true;
-          bug.hit(1);
-          if (bug.dead) this.onKill(bug);
-          else if (bug.isBoss) this.sound?.bossHit();
-          else if (bug.type === "tank") this.sound?.tankHit();
-          break;
-        }
-      }
-    }
+    for (const bug of this.bugs) bug.update(dt * ts, this.time);   // Bugs in Slow-Mo, Strahlen/Juice normal
     this.beams = this.beams.filter((b) => !b.dead);
 
     // Bug × Boden (Korruption) + tote/entkommene entfernen
     for (const bug of this.bugs) {
-      if (!bug.dead && bugReachedFloor(bug, CONFIG.floorY)) { bug.escaped = true; this.onEscape(bug); }
+      if (!bug.dead && bugReachedFloor(bug, CONFIG.floorY)) {
+        bug.escaped = true;
+        if (bug === this.target) this.releaseTarget();
+        this.onEscape(bug);
+      }
     }
     this.bugs = this.bugs.filter((b) => !b.dead && !b.escaped);
 
@@ -223,6 +333,63 @@ export class Game {
     }
   }
 
+  // Minimal-Wasser am Editor-Boden: die Gummiente schwimmt auf der "Code-Oberfläche".
+  // Bewusst transluzent → Terminal/IDE-Look (Alleinstellungsmerkmal) bleibt lesbar.
+  drawWater(ctx) {
+    const s = CONFIG.floorY;             // Wasseroberfläche = Editor-Bodenlinie
+    const t = this.time;
+    ctx.save();
+    // transluzenter Wasserkörper (Verlauf nach unten auslaufend)
+    const g = ctx.createLinearGradient(0, s, 0, this.H);
+    g.addColorStop(0, "rgba(56,139,253,0.12)");
+    g.addColorStop(1, "rgba(56,139,253,0.03)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, s, this.W, this.H - s);
+    // animierte Wellen-Oberfläche (zwei überlagerte Sinus → unregelmäßig)
+    ctx.beginPath();
+    ctx.moveTo(0, s);
+    for (let x = 0; x <= this.W; x += 14) {
+      const y = s + Math.sin(x * 0.035 + t * 2) * 2.2 + Math.sin(x * 0.013 - t * 1.3) * 1.6;
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(88,166,255,0.55)";
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = "rgba(88,166,255,0.5)";
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    // expandierende Ripple unter der Ente
+    ctx.shadowBlur = 0;
+    const rp = (t % 1.6) / 1.6;
+    ctx.globalAlpha = Math.max(0, 1 - rp) * 0.5;
+    ctx.strokeStyle = "rgba(88,166,255,0.6)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(this.duck.x, s + 6, 16 + rp * 26, 3 + rp * 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawTerminal(ctx) {
+    const y = CONFIG.floorY + 30;
+    ctx.textAlign = "left";
+    ctx.font = "20px ui-monospace, monospace";
+    ctx.fillStyle = "#7ee787";
+    ctx.fillText("›", 18, y);
+    ctx.fillStyle = "#c9d1d9";
+    ctx.fillText(this.typed, 40, y);
+    // blinkender Cursor hinter dem Getippten
+    if ((Math.floor(this.time * 2) % 2) === 0) {
+      const w = ctx.measureText(this.typed).width;
+      ctx.fillStyle = "#7ee787";
+      ctx.fillRect(42 + w, y - 15, 9, 18);
+    }
+    if (!this.target) {
+      ctx.fillStyle = "#6e7681";
+      ctx.font = "13px ui-monospace, monospace";
+      ctx.fillText("tipp einen /command, um einen Bug zu fixen", 40, y + 22);
+    }
+  }
+
   drawHud(ctx) {
     ctx.fillStyle = "#c9d1d9";
     ctx.font = "16px ui-monospace, monospace";
@@ -238,22 +405,59 @@ export class Game {
       ctx.fillStyle = "#7ee787";
       ctx.fillText(`×${mult}`, this.W / 2, 50);
     }
+    if (this.slowmo > 0) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#7ee787";
+      ctx.font = "14px ui-monospace, monospace";
+      ctx.fillText("◴ compacting…", 16, 50);
+    }
   }
 
   drawPlayfield(ctx) {
     this.drawBackground(ctx);
+    this.drawWater(ctx);
     for (const bug of this.bugs) bug.draw(ctx, this.time);
     for (const b of this.beams) b.draw(ctx);
     this.duck.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
     for (const t of this.texts) t.draw(ctx);
     this.drawHud(ctx);
+    this.drawTerminal(ctx);
     if (this.banner > 0) {
       ctx.fillStyle = "#c9d1d9";
       ctx.font = "32px ui-monospace, monospace";
       ctx.textAlign = "center";
       ctx.fillText(`Welle ${this.wave}`, this.W / 2, this.H / 2);
     }
+  }
+
+  drawIntro(ctx) {
+    ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, this.W, this.H);
+    ctx.textAlign = "left";
+    ctx.font = "16px ui-monospace, monospace";
+    ctx.fillStyle = "#6e7681";
+    ctx.fillText("claude-code · rubber-duck-debugger", 40, 70);
+    const it = this.intro;
+    let y = 150;
+    for (let i = 0; i <= it.li; i++) {
+      const line = it.lines[i];
+      const shown = i < it.li ? line.text : line.text.slice(0, it.ci);
+      ctx.font = "14px ui-monospace, monospace";
+      ctx.fillStyle = line.who === "you" ? "#7ee787" : "#e5c07b";
+      ctx.fillText(line.who === "you" ? "you ›" : "claude ›", 40, y);
+      ctx.fillStyle = "#c9d1d9";
+      ctx.font = "18px ui-monospace, monospace";
+      const wrapped = shown.match(/.{1,62}(\s|$)/g) || [shown];   // grober Umbruch bei ~62 Zeichen
+      for (const w of wrapped) { ctx.fillText(w, 110, y); y += 28; }
+      y += 16;
+    }
+    // Cursor an der aktiven Zeile
+    if ((Math.floor(this.time * 2) % 2) === 0) {
+      ctx.fillStyle = "#7ee787"; ctx.fillRect(110, y - 36, 9, 18);
+    }
+    ctx.fillStyle = "#6e7681"; ctx.font = "13px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("Enter / Klick = überspringen", this.W / 2, this.H - 40);
   }
 
   drawTitle(ctx) {
@@ -263,18 +467,27 @@ export class Game {
     ctx.fillStyle = "#ffd23f"; ctx.font = "44px ui-monospace, monospace";
     ctx.fillText("🦆 Rubber Duck Debugger", this.W / 2, 190);
     ctx.fillStyle = "#c9d1d9"; ctx.font = "18px ui-monospace, monospace";
-    ctx.fillText("Erklär dem Entchen deinen Bug.", this.W / 2, 230);
+    ctx.fillText("Tippe die Claude-Code-/commands, die auf den Bugs stehen.", this.W / 2, 230);
     ctx.fillStyle = "#8b949e"; ctx.font = "15px ui-monospace, monospace";
-    ctx.fillText("Maus / Pfeile = bewegen   •   Klick / Leertaste = Erklär-Strahl", this.W / 2, 300);
-    ctx.fillText("Schieß Bugs ab, bevor sie deinen Code korrumpieren.", this.W / 2, 326);
+    ctx.fillText("Tippe den /command des Bugs den du killen willst   •   Backspace = korrigieren", this.W / 2, 290);
+    ctx.fillText("Beliebige Reihenfolge. Tippfehler bricht die Combo.", this.W / 2, 314);
+    // Spezial-Bugs (leuchten) — Legende
+    ctx.font = "14px ui-monospace, monospace";
+    ctx.fillStyle = "#58a6ff"; ctx.fillText("/clear", this.W / 2 - 150, 348);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("leert das Feld", this.W / 2 - 60, 348);
+    ctx.fillStyle = "#7ee787"; ctx.fillText("/compact", this.W / 2 - 150, 370);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("= Slow-Mo", this.W / 2 - 60, 370);
+    ctx.fillStyle = "#ffd23f"; ctx.fillText("/cost", this.W / 2 - 150, 392);
+    ctx.fillStyle = "#8b949e"; ctx.fillText("= Bonus-Score", this.W / 2 - 60, 392);
+    ctx.textAlign = "center";
     ctx.fillStyle = "#7ee787"; ctx.font = "20px ui-monospace, monospace";
-    ctx.fillText("Klick zum Start", this.W / 2, 400);
+    ctx.fillText("Klick zum Start", this.W / 2, 430);
     ctx.fillStyle = "#8b949e"; ctx.font = "14px ui-monospace, monospace";
-    ctx.fillText(`Best: ${this.best}`, this.W / 2, 440);
+    ctx.fillText(`Best: ${this.best}`, this.W / 2, 462);
     // Touch-Geräte: Hinweis, damit ein Judge am Handy nicht vor totem Spiel sitzt
     if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
       ctx.fillStyle = "#e5c07b"; ctx.font = "14px ui-monospace, monospace";
-      ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 470);
+      ctx.fillText("Am besten am Desktop mit Maus/Tastatur spielen.", this.W / 2, 492);
     }
   }
 
@@ -289,7 +502,7 @@ export class Game {
     ctx.fillText(`Best: ${this.best}`, this.W / 2, 322);
     ctx.fillText(`Welle: ${this.wave}`, this.W / 2, 354);
     ctx.fillStyle = "#7ee787"; ctx.font = "18px ui-monospace, monospace";
-    ctx.fillText("R / Klick = neu starten", this.W / 2, 420);
+    ctx.fillText("Enter / Klick = neu starten", this.W / 2, 420);
   }
 
   draw(ctx) {
@@ -300,7 +513,9 @@ export class Game {
       const s = this.shake * 14;
       ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);  // echter Frame-Jitter
     }
-    if (this.state === STATE.PLAYING) {
+    if (this.state === STATE.INTRO) {
+      this.drawIntro(ctx);
+    } else if (this.state === STATE.PLAYING) {
       this.drawPlayfield(ctx);
     } else if (this.state === STATE.PAUSED) {
       this.drawPlayfield(ctx);                 // eingefrorener Frame
@@ -309,7 +524,7 @@ export class Game {
       ctx.fillStyle = "#c9d1d9"; ctx.font = "34px ui-monospace, monospace";
       ctx.fillText("⏸ Pause", this.W / 2, this.H / 2 - 8);
       ctx.fillStyle = "#8b949e"; ctx.font = "16px ui-monospace, monospace";
-      ctx.fillText("P / Esc = weiter", this.W / 2, this.H / 2 + 24);
+      ctx.fillText("Esc = weiter", this.W / 2, this.H / 2 + 24);
     } else if (this.state === STATE.TITLE) {
       this.drawTitle(ctx);
     } else {

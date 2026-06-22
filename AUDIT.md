@@ -33,18 +33,39 @@ Alleinstellungsmerkmal + tiefere Claude-Anbindung. Brainstorming-Entscheidungen 
   startet Game. Reine Render-/Timing-Sache, keine neue Mechanik. Skippbar (Taste/Klick).
 
 ## Backlog — nach Abgabe (Di 18:00), NICHT vor Deadline anfassen
-- **On-Theme-Politur (Idee 2, ohne Wasser):** Syntax-Farben, Scanlines/CRT, Glow, Tiefe.
-  Gewässer-BG verworfen — clasht mit IDE/Terminal-Theme = Alleinstellungsmerkmal.
+- **On-Theme-Politur (Idee 2):** Syntax-Farben, Scanlines/CRT, Glow, Tiefe.
+  **Wasser-Revision 2026-06-22 (Calvin):** voll-Gewässer-BG bleibt verworfen (clasht mit IDE/Terminal-
+  Theme = Alleinstellungsmerkmal) — ABER **Minimal-Wasser als Mittelweg umgesetzt** (Ente = Rubber Duck
+  → schwimmt): transluzente Wasserfläche + animierte Wellenlinie an `floorY`, Ente bobbt/schaukelt,
+  Ripple. Terminal-Prompt bleibt lesbar. Siehe Iteration 3.
 - **Skill-Trigger (Idee 3):** auslösbare „Superpower" als In-Game-Power (z.B. Screen-Clear/
   Slow-Mo). Neue Mechanik → erst nach Abgabe.
 - **MCP (Idee 4):** echtes MCP nicht machbar (statisch, kein Backend, Tech-Guardrail).
   Nur als Flavor/Naming denkbar (Gegner-/Power-Typ „MCP").
 
-**NÄCHSTER SCHRITT:** Plan + Premortem fertig — Ausführung. Plan:
-`docs/superpowers/plans/2026-06-22-claude-code-debugger-pivot.md` (Task 0–7, Pivot + Intro).
-Premortem: `...-pivot-premortem.md` (Verdikt REVISE→gepatcht: Branch-Strategie, handleChar-Normalisierung,
-weicherer Tippfehler). **Erst `git checkout -b pivot-typing` (Task 0), `main` bleibt Fallback.**
-**Deadline: Di 18:00 = morgen.** Falls Pivot zeitlich kippt → statisches T12-Game auf `main` ist abgabefähig.
+**STAND PIVOT:** Code **Task 0–6 + 2 Playtest-Iterationen fertig + gepusht auf Branch `pivot-typing`**
+(commands statt labels, Typing, Execute-Strahlen, Boss-Sequenz, Terminal-Prompt, Input-Remap,
+Intro „Hey Claude"). **Iteration 1 (Speed/Targeting):** vy gesenkt (fast 130→78, std 60→44, tank 45→30),
+Wave-Budget 4+2n→3+n, Spawn langsamer; Auto-Lock → freies Buffer-Targeting (`pickTargetByBuffer`,
+jeder Bug in beliebiger Reihenfolge killbar). **Iteration 2 (Claude-Code-Theme):** echte CC-Commands
+(`/help /model /init /status /memory /agents` · `/mcp /vim /bug /ide /login` · `/permissions
+/terminal-setup /output-style /add-dir`); **Spezial-Bugs** (leuchten): `/clear`=Feld leeren,
+`/compact`=Slow-Mo 3s, `/cost`=Bonus-Score; Boss „Heisenbug"→„Context Overflow" (`/compact→/clear→/resume`).
+**Iteration 3 (Minimal-Wasser, 2026-06-22):** Ente schwimmt jetzt — transluzenter Wasserkörper
+(Verlauf) + animierte Wellen-Oberfläche an `floorY`, `Duck.bobT` → Auf-und-Ab + leichtes Schaukeln,
+expandierende Ripple unter der Ente (`game.js:drawWater`, in `drawPlayfield` nach `drawBackground`).
+Bewusst transluzent → Terminal/IDE-Look bleibt intakt. Deterministisch (kein `Math.random` im Pfad).
+Verifiziert: **19/19 mechanics-Tests grün**, `node --check` alle Files, **headless Smoke** (clear leert
+Feld, compact-Slow-Mo skaliert vy, cost-Bonus, freie Reihenfolge; Render-Pfad gegen Stub-ctx crashfrei).
+`main`-HEAD = statisches T12 = Fallback.
+
+**OFFEN = Task 7 (braucht Calvin/Browser):** 1) `python3 -m http.server 8000` → Playtest 3–4 Runden:
+Speed jetzt ok? Spezial-Bug-Frequenz (16%) angenehm? `/c`-Cluster (clear/compact/cost) verwirrend? → nur
+`config.js`-Werte justieren. **NEU: Wasser optisch prüfen** — Wellen sichtbar/Ente schwimmt, aber
+Terminal-Prompt + Code lesbar (nicht aufdringlich)? Falls zu stark/schwach → Alpha in `drawWater` justieren. 2) Konsole error/404-frei (Intro→Play→Boss→GameOver→Restart). 3) Erst NACH
+bestandenem Playtest: `git checkout main && git merge --no-ff pivot-typing && git push origin main`.
+4) `! npx vercel` (Login interaktiv, Calvin) → Live-URL == lokal → Repo+Live-Link in Abgabe-Thread.
+**Deadline: Di 18:00 = morgen.** Kippt der Pivot → `main` (statisch) ist abgabefähig.
 
 ## Stand
 - Setup ✓, Spec ✓, Plan (13 Tasks) ✓, Premortem (PROCEED) ✓.

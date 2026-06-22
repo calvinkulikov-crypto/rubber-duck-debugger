@@ -8,6 +8,7 @@ export class Duck {
     this.w = CONFIG.duck.w;
     this.h = CONFIG.duck.h;
     this.recoil = 0;          // 0..recoilTime, zählt runter
+    this.bobT = 0;            // Wasser-Schaukel-Phase (akkumuliert in update)
   }
 
   update(dt, input) {
@@ -20,6 +21,7 @@ export class Duck {
     const step = clamp(dx, -sp * dt, sp * dt);
     this.x = clamp(this.x + step, this.w / 2, CONFIG.canvas.w - this.w / 2);
     if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt);
+    this.bobT += dt;          // sanftes Auf-und-Ab + Schaukeln auf dem Wasser
   }
 
   triggerRecoil() { this.recoil = CONFIG.duck.recoilTime; }
@@ -30,8 +32,10 @@ export class Duck {
   draw(ctx) {
     const squash = this.recoil > 0 ? 1 + (this.recoil / CONFIG.duck.recoilTime) * 0.18 : 1;
     const w = this.w, h = this.h / squash;
+    const bob = Math.sin(this.bobT * 2.2) * 2.2;   // Wellengang
     ctx.save();
-    ctx.translate(this.x, this.y);
+    ctx.translate(this.x, this.y + bob);
+    ctx.rotate(Math.sin(this.bobT * 1.6) * 0.04);  // leichtes Schaukeln auf dem Wasser
     // Körper
     ctx.fillStyle = "#ffd23f";
     ctx.beginPath();
@@ -59,18 +63,23 @@ export class Duck {
 }
 
 export class Beam {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
+  // Kosmetischer "Execute"-Strahl: fliegt von (x,y) Richtung Ziel (tx,ty).
+  constructor(x, y, tx, ty) {
+    this.x = x; this.y = y;
+    const dx = tx - x, dy = ty - y;
+    const d = Math.hypot(dx, dy) || 1;
+    this.vx = (dx / d) * CONFIG.beam.speed;
+    this.vy = (dy / d) * CONFIG.beam.speed;
     this.len = CONFIG.beam.len;
     this.width = CONFIG.beam.width;
+    this.ttl = d / CONFIG.beam.speed + 0.03;   // stirbt ~beim Erreichen des Ziels
     this.dead = false;
   }
-  update(dt) {
-    this.y -= CONFIG.beam.speed * dt;
-    if (this.y + this.len < 0) this.dead = true;   // oben raus = Miss
-  }
+  update(dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.ttl -= dt; if (this.ttl <= 0) this.dead = true; }
   draw(ctx) {
+    const d = Math.hypot(this.vx, this.vy) || 1;
+    const bx = this.x - (this.vx / d) * this.len;   // Schweif entgegen Flugrichtung
+    const by = this.y - (this.vy / d) * this.len;
     ctx.save();
     ctx.strokeStyle = "#7ee787";
     ctx.lineWidth = this.width;
@@ -79,26 +88,33 @@ export class Beam {
     ctx.shadowBlur = 12;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y);
-    ctx.lineTo(this.x, this.y - this.len);
+    ctx.lineTo(bx, by);
     ctx.stroke();
     ctx.restore();
   }
 }
 
 export class Bug {
-  // typeKey: "standard" | "fast" | "tank"; speedMult skaliert vy pro Welle
-  constructor(typeKey, x, speedMult, phase) {
-    const t = CONFIG.bugTypes[typeKey];
-    this.type = typeKey;
+  // typeKey: "standard" | "fast" | "tank"; speedMult skaliert vy pro Welle.
+  // special: optionales Spec-Objekt aus CONFIG.specials → Effekt-Bug (typeKey wird ignoriert).
+  constructor(typeKey, x, speedMult, phase, special = null) {
+    const t = special || CONFIG.bugTypes[typeKey];
+    this.type = special ? "special" : typeKey;
+    this.special = !!special;
+    this.effect = special ? special.effect : null;
     this.x = x;
     this.y = -t.r;
     this.r = t.r;
     this.vy = t.vy * speedMult;
-    this.hp = t.hp;
-    this.maxHp = t.hp;
+    this.hp = special ? 1 : t.hp;
+    this.maxHp = this.hp;
     this.points = t.points;
     this.color = t.color;
-    this.label = t.labels[Math.floor((phase * 97) % t.labels.length)];  // deterministische Wahl
+    this.command = special
+      ? special.command
+      : t.commands[Math.floor((phase * 97) % t.commands.length)]; // deterministische Wahl
+    this.typedLen = 0;           // wie viele Zeichen des Commands schon getippt (vom Game gesetzt)
+    this.label = this.command;   // Alias für FloatingText beim Kill
     this.phase = phase;          // für Krabbel-/Drift-Animation
     this.flash = 0;
     this.dead = false;
@@ -115,6 +131,17 @@ export class Bug {
     const wob = Math.sin((time + this.phase) * 10) * this.r * 0.12;
     ctx.save();
     ctx.translate(this.x, this.y);
+    // Spezial-Bug: pulsierender Leucht-Ring, damit der Spieler ihn sofort erkennt
+    if (this.special) {
+      const pulse = 0.5 + 0.5 * Math.sin(time * 6);
+      ctx.save();
+      ctx.globalAlpha = 0.35 + 0.45 * pulse;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = this.color; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(0, 0, this.r + 6 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     ctx.fillStyle = this.flash > 0 ? "#ffffff" : this.color;
     // Körper
     ctx.beginPath();
@@ -133,11 +160,16 @@ export class Bug {
     ctx.fillStyle = "#0d1117";
     ctx.beginPath(); ctx.arc(-this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(this.r * 0.3, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); ctx.fill();
-    // Label
+    // Command-Label: getippter Teil grün, Rest grau
+    ctx.font = "12px ui-monospace, monospace";
+    const cmd = this.command;
+    const done = cmd.slice(0, this.typedLen);
+    const x0 = -ctx.measureText(cmd).width / 2;
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#7ee787";
+    ctx.fillText(done, x0, -this.r - 6);
     ctx.fillStyle = "#8b949e";
-    ctx.font = "11px ui-monospace, monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(this.label, 0, -this.r - 6);
+    ctx.fillText(cmd.slice(this.typedLen), x0 + ctx.measureText(done).width, -this.r - 6);
     ctx.restore();
   }
 }
@@ -154,23 +186,27 @@ export class Boss {
     this.points = b.points;
     this.color = b.color;
     this.label = b.label;
+    this.commands = b.commands;
+    this.seq = 0;
+    this.typedLen = 0;
     this.flash = 0;
     this.dead = false;
     this.escaped = false;
     this.isBoss = true;
   }
+  get command() { return this.commands[this.seq]; }   // aktueller Command der Sequenz
+  advance() {
+    this.seq += 1;
+    this.typedLen = 0;
+    this.flash = 0.1;
+    const margin = this.r + 20;       // teleport wie bisher beim Treffer
+    this.x = margin + (Math.abs(this.seq * 137 + Math.floor(this.y) * 7) % (CONFIG.canvas.w - 2 * margin));
+    if (this.seq >= this.commands.length) this.dead = true;
+  }
   update(dt, time) {
     this.y += this.vy * dt;
     this.x += Math.sin(time * 1.6) * 40 * dt;
     if (this.flash > 0) this.flash = Math.max(0, this.flash - dt);
-  }
-  hit(dmg = 1) {
-    this.hp -= dmg;
-    this.flash = 0.1;
-    // Heisenbug: teleportiert seine x-Position bei jedem Treffer
-    const margin = this.r + 20;
-    this.x = margin + (Math.abs(this.hp * 137 + Math.floor(this.y) * 7) % (CONFIG.canvas.w - 2 * margin));
-    if (this.hp <= 0) this.dead = true;
   }
   draw(ctx, time) {
     ctx.save();
@@ -182,11 +218,17 @@ export class Boss {
     ctx.fillStyle = "#0d1117";
     ctx.beginPath(); ctx.arc(-this.r * 0.32, -this.r * 0.18, this.r * 0.13, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(this.r * 0.32, -this.r * 0.18, this.r * 0.13, 0, Math.PI * 2); ctx.fill();
-    // HP-Bar
-    ctx.fillStyle = "#30363d"; ctx.fillRect(-this.r, -this.r - 14, this.r * 2, 6);
-    ctx.fillStyle = "#56b6c2"; ctx.fillRect(-this.r, -this.r - 14, this.r * 2 * (this.hp / this.maxHp), 6);
+    // Fortschritt = wie viele Commands der Sequenz erledigt
+    ctx.fillStyle = "#30363d"; ctx.fillRect(-this.r, -this.r - 26, this.r * 2, 6);
+    ctx.fillStyle = "#56b6c2"; ctx.fillRect(-this.r, -this.r - 26, this.r * 2 * (this.seq / this.commands.length), 6);
     ctx.fillStyle = "#8b949e"; ctx.font = "12px ui-monospace, monospace"; ctx.textAlign = "center";
-    ctx.fillText(this.label, 0, -this.r - 20);
+    ctx.fillText(this.label, 0, -this.r - 32);
+    const cmd = this.command;
+    const done = cmd.slice(0, this.typedLen);
+    const w = ctx.measureText(cmd).width;
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#7ee787"; ctx.fillText(done, -w / 2, -this.r - 12);
+    ctx.fillStyle = "#c9d1d9"; ctx.fillText(cmd.slice(this.typedLen), -w / 2 + ctx.measureText(done).width, -this.r - 12);
     ctx.restore();
   }
 }

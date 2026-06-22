@@ -4,7 +4,10 @@ import {
   clamp, comboMultiplier, scoreForKill,
   waveBudget, waveSpeedMultiplier, isBossWave,
   bugReachedFloor, beamHitsBug,
+  matchCommand, pickTarget, pickTargetByBuffer,
 } from "../mechanics.js";
+import { Bug } from "../entities.js";
+import { CONFIG } from "../config.js";
 
 test("clamp begrenzt nach unten/oben", () => {
   assert.equal(clamp(5, 0, 10), 5);
@@ -50,4 +53,78 @@ test("beamHitsBug: vertikales Segment vs Kreis", () => {
   assert.equal(beamHitsBug({ x: 400, y: 215, len: 26, width: 6 }, bug), true);   // direkt drunter, überlappt
   assert.equal(beamHitsBug({ x: 460, y: 215, len: 26, width: 6 }, bug), false);  // seitlich daneben
   assert.equal(beamHitsBug({ x: 400, y: 400, len: 26, width: 6 }, bug), false);  // zu weit weg vertikal
+});
+
+test("matchCommand: korrekter nächster Buchstabe schreitet voran", () => {
+  assert.deepEqual(matchCommand("/fix", "", "/"), { ok: true, buffer: "/", complete: false });
+  assert.deepEqual(matchCommand("/fix", "/fi", "x"), { ok: true, buffer: "/fix", complete: true });
+});
+
+test("matchCommand: falscher Buchstabe = Syntax-Error, Buffer unverändert", () => {
+  assert.deepEqual(matchCommand("/fix", "/f", "z"), { ok: false, buffer: "/f", complete: false });
+});
+
+test("pickTarget: tiefster (größtes y) Bug mit passendem ersten Zeichen", () => {
+  const bugs = [
+    { command: "/fix", y: 100, dead: false },
+    { command: "/test", y: 300, dead: false },
+    { command: "/fix", y: 250, dead: false },
+  ];
+  assert.equal(pickTarget(bugs, "/"), 1); // y=300 am tiefsten
+});
+
+test("pickTarget: kein passender Bug → -1", () => {
+  assert.equal(pickTarget([{ command: "/fix", y: 100, dead: false }], "x"), -1);
+});
+
+test("pickTarget: tote Bugs werden ignoriert", () => {
+  const bugs = [{ command: "/fix", y: 400, dead: true }, { command: "/fix", y: 100, dead: false }];
+  assert.equal(pickTarget(bugs, "/"), 1);
+});
+
+test("pickTargetByBuffer: tiefster Bug dessen command mit buffer beginnt", () => {
+  const bugs = [
+    { command: "/fix",      y: 100, dead: false },
+    { command: "/refactor", y: 300, dead: false },
+    { command: "/fix",      y: 250, dead: false },
+  ];
+  assert.equal(pickTargetByBuffer(bugs, "/fi"), 2);   // y=250 tiefer als y=100, /refactor passt nicht
+  assert.equal(pickTargetByBuffer(bugs, "/ref"), 1);  // nur /refactor passt
+});
+
+test("pickTargetByBuffer: kein passender Bug → -1", () => {
+  assert.equal(pickTargetByBuffer([{ command: "/fix", y: 100, dead: false }], "/test"), -1);
+});
+
+test("pickTargetByBuffer: tote Bugs werden ignoriert", () => {
+  const bugs = [{ command: "/fix", y: 400, dead: true }, { command: "/fix", y: 100, dead: false }];
+  assert.equal(pickTargetByBuffer(bugs, "/fix"), 1);
+});
+
+test("Bug special: Spec überschreibt command/effect/flag, hp=1", () => {
+  const clear = CONFIG.specials.find((s) => s.effect === "clear");
+  const bug = new Bug(null, 100, 1, 0.5, clear);
+  assert.equal(bug.special, true);
+  assert.equal(bug.effect, "clear");
+  assert.equal(bug.command, clear.command);
+  assert.equal(bug.hp, 1);
+  assert.equal(bug.isBoss, false);
+});
+
+test("Bug normal: special bleibt false, command aus typeKey-Pool", () => {
+  const bug = new Bug("standard", 100, 1, 0.5);
+  assert.equal(bug.special, false);
+  assert.equal(bug.effect, null);
+  assert.ok(CONFIG.bugTypes.standard.commands.includes(bug.command));
+});
+
+test("pickTargetByBuffer trennt /c-Spezial-Commands sauber", () => {
+  const bugs = [
+    { command: "/clear",   y: 200, dead: false },
+    { command: "/compact", y: 300, dead: false },
+    { command: "/cost",    y: 250, dead: false },
+  ];
+  assert.equal(pickTargetByBuffer(bugs, "/cl"), 0);  // nur /clear
+  assert.equal(pickTargetByBuffer(bugs, "/com"), 1); // nur /compact
+  assert.equal(pickTargetByBuffer(bugs, "/cos"), 2); // nur /cost
 });
